@@ -105,11 +105,10 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     formData.append('file', blob, 'recording.webm');
     formData.append('model', 'whisper-large-v3');
     formData.append('response_format', 'json');
-    formData.append('temperature', '0.2');
     
     console.log("Sending transcription request to Groq API");
     
-    // Call the Groq API using transcriptions endpoint (as requested)
+    // Call the Groq API using transcriptions endpoint
     const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
       method: 'POST',
       headers: {
@@ -119,9 +118,19 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Groq API error:', errorData);
-      throw new Error(`Failed to transcribe audio: ${errorData.error?.message || response.statusText || 'Unknown API error'}`);
+      const errorText = await response.text();
+      let errorMessage = 'Unknown API error';
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorData.message || response.statusText || 'API error';
+        console.error('Groq API error:', errorData);
+      } catch (e) {
+        console.error('Failed to parse error response:', errorText);
+        errorMessage = response.statusText || 'API error';
+      }
+      
+      throw new Error(`Failed to transcribe audio: ${errorMessage}`);
     }
     
     const data = await response.json();

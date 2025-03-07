@@ -14,7 +14,20 @@ const Index = () => {
   const [recentNotes, setRecentNotes] = useState<Note[]>(() => {
     // Try to load from localStorage
     const saved = localStorage.getItem('thought-garden-notes');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    
+    try {
+      // Parse the saved notes and ensure dates are properly converted to Date objects
+      const parsedNotes = JSON.parse(saved);
+      return parsedNotes.map((note: any) => ({
+        ...note,
+        createdAt: new Date(note.createdAt),
+        updatedAt: new Date(note.updatedAt)
+      }));
+    } catch (error) {
+      console.error("Error parsing saved notes:", error);
+      return [];
+    }
   });
 
   const handleTranscriptionComplete = (result: TranscriptionResult) => {
@@ -35,8 +48,15 @@ const Index = () => {
     const updatedNotes = [newNote, ...recentNotes];
     setRecentNotes(updatedNotes);
     
-    // Save to localStorage
-    localStorage.setItem('thought-garden-notes', JSON.stringify(updatedNotes));
+    // Save to localStorage with proper date handling
+    const notesToSave = updatedNotes.map(note => ({
+      ...note,
+      // Store dates as ISO strings for reliable serialization
+      createdAt: note.createdAt.toISOString(),
+      updatedAt: note.updatedAt.toISOString()
+    }));
+    
+    localStorage.setItem('thought-garden-notes', JSON.stringify(notesToSave));
     
     // Navigate to the new note
     navigate(`/notes/${newNote.id}`);
