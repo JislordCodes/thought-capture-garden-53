@@ -16,22 +16,22 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     
     toast.loading("Transcribing your thoughts...");
     
-    // Call Groq API for transcription - sending the raw blob directly
+    // First, validate the audio blob
+    if (!audioBlob || audioBlob.size === 0) {
+      throw new Error("Empty audio recording. Please try again and speak clearly.");
+    }
+    
+    // Directly use the audioBlob for transcription
     const transcription = await fetchTranscription(audioBlob);
     
-    // Handle empty or very short responses better
-    if (!transcription || transcription.trim().length <= 1) {
+    if (!transcription || transcription.trim().length <= 5) {
       console.error("Empty or very short transcription result:", transcription);
-      throw new Error("Transcription returned empty or minimal text. Please try recording again with clearer speech.");
+      throw new Error("Couldn't detect speech. Please try again with clearer speech.");
     }
     
     // Clean up the transcription text
     const text = cleanTranscriptionText(transcription);
     console.log("Transcription successful:", text);
-    
-    if (!text) {
-      throw new Error("Empty transcription result after cleaning");
-    }
     
     // Process the transcription
     const result = await processTranscription(text);
@@ -67,10 +67,13 @@ function cleanTranscriptionText(text: string): string {
   return cleaned;
 }
 
-// Fetch transcription from Groq API - simplified to send the raw blob directly
+// Fetch transcription from Groq API
 async function fetchTranscription(audioBlob: Blob): Promise<string> {
   try {
-    console.log("Audio blob size for API:", audioBlob.size, "bytes", "type:", audioBlob.type);
+    console.log("Audio blob details for API:", {
+      size: audioBlob.size,
+      type: audioBlob.type
+    });
     
     // Check if blob is too small (likely empty audio)
     if (audioBlob.size < 1000) {
@@ -80,14 +83,14 @@ async function fetchTranscription(audioBlob: Blob): Promise<string> {
     // Create FormData for the API request
     const formData = new FormData();
     
-    // Add the file to FormData with optimized settings
+    // Add the file to FormData
     formData.append('file', audioBlob, 'recording.webm');
-    formData.append('model', 'whisper-large-v3');
+    formData.append('model', 'whisper-large-v3'); // Using whisper-large-v3 model
     formData.append('response_format', 'json');
     
-    console.log("Sending transcription request to Groq API");
+    console.log("Sending transcription request to Groq API with model: whisper-large-v3");
     
-    // Call the Groq API using transcriptions endpoint
+    // Call the Groq API
     const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
       method: 'POST',
       headers: {
@@ -96,31 +99,30 @@ async function fetchTranscription(audioBlob: Blob): Promise<string> {
       body: formData
     });
     
-    console.log("Got response from Groq API:", {
-      status: response.status,
-      statusText: response.statusText
-    });
+    console.log("Groq API response status:", response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Unknown API error';
+      let errorMessage = 'Failed to transcribe audio with Groq API';
       
       try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error?.message || errorData.message || response.statusText || 'API error';
+        const errorData = await response.json();
         console.error('Groq API error:', errorData);
+        errorMessage = errorData.error?.message || 'Failed to transcribe audio with Groq API';
       } catch (e) {
-        console.error('Failed to parse error response:', errorText);
-        errorMessage = response.statusText || 'API error';
+        console.error('Failed to parse error response');
       }
       
-      throw new Error(`Failed to transcribe audio: ${errorMessage}`);
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
     console.log("Transcription API response:", data);
     
-    return data.text || "";
+    if (!data.text) {
+      throw new Error("No transcription text returned from API");
+    }
+    
+    return data.text;
   } catch (error) {
     console.error("Error in transcription:", error);
     throw error;

@@ -48,14 +48,15 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
+      // Reset audio chunks at the start of recording
+      audioChunksRef.current = [];
+      
       // Request audio access with optimal configuration for translation
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1
+          autoGainControl: true
         }
       });
       
@@ -65,28 +66,23 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       micStreamRef.current = stream;
       
       // Check support for preferred codec
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-        ? 'audio/webm;codecs=opus' 
-        : 'audio/webm';
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : 'audio/ogg';
       
       console.log("Using MIME type:", mimeType);
       
-      // Create media recorder with high-quality settings
-      const options = { 
-        mimeType, 
-        audioBitsPerSecond: 128000
-      };
-      
-      const mediaRecorder = new MediaRecorder(stream, options);
-      console.log("MediaRecorder created with options:", options);
+      // Create media recorder
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      console.log("MediaRecorder created with options:", { mimeType });
       
       mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          console.log("Audio chunk received:", event.data.size, "bytes");
+        console.log("Data available event triggered, size:", event.data.size);
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log("Audio chunk added, total chunks:", audioChunksRef.current.length);
         }
       };
       
@@ -97,7 +93,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           if (audioChunksRef.current.length === 0) {
             console.error("No audio chunks recorded");
             toast.error("No audio recorded. Please try again.");
-            setStatus(prev => ({ ...prev, isProcessing: false }));
+            setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
             return;
           }
           
@@ -114,18 +110,11 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           if (audioBlob.size === 0) {
             console.error("Empty audio blob created");
             toast.error("Empty recording detected. Please try again.");
-            setStatus(prev => ({ ...prev, isProcessing: false }));
+            setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
             return;
           }
           
-          if (audioBlob.size < 1000) {
-            console.error("Audio blob too small:", audioBlob.size);
-            toast.error("Recording too short. Please try speaking louder or longer.");
-            setStatus(prev => ({ ...prev, isProcessing: false }));
-            return;
-          }
-          
-          setStatus(prev => ({ ...prev, isProcessing: true }));
+          setStatus(prev => ({ ...prev, isProcessing: true, isRecording: false }));
           
           try {
             console.log("Sending audio for transcription...");
@@ -134,7 +123,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             onTranscriptionComplete(result);
           } catch (error) {
             console.error("Error in transcription process:", error);
-            toast.error(error instanceof Error ? error.message : "Failed to process recording. Please try again.");
+            toast.error("Failed to process recording. Please try again.");
           } finally {
             setStatus(prev => ({ ...prev, isProcessing: false }));
             // Release microphone access
@@ -145,13 +134,13 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           }
         } catch (error) {
           console.error("Error processing recording:", error);
-          toast.error(error instanceof Error ? error.message : "Failed to process recording. Please try again.");
-          setStatus(prev => ({ ...prev, isProcessing: false }));
+          toast.error("Failed to process recording. Please try again.");
+          setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
         }
       };
       
-      // Start recording with smaller timeslice for more consistent chunks
-      mediaRecorder.start(100); // Collect data more frequently
+      // Start recording with a timeslice to get data during recording
+      mediaRecorder.start(1000); // Collect data every second
       
       setStatus({
         isRecording: true,
@@ -180,8 +169,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
       }
-      
-      setStatus(prev => ({ ...prev, isRecording: false }));
     }
   };
   
