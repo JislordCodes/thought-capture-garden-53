@@ -168,14 +168,14 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
         messages: [
           {
             role: 'system',
-            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items. Be precise and accurate in your analysis.'
+            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items. Be precise and accurate in your analysis. ALWAYS include action items in your response.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.4, // Slightly lower temperature for more consistent results
+        temperature: 0.5, // Slightly higher temperature for more creative results
         max_tokens: 800
       })
     });
@@ -229,9 +229,59 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     const keywords = keywordsLine ? 
       keywordsLine.replace('Keywords:', '').split(',').map(s => s.trim()).filter(Boolean) : 
       [];
-    const actionItems = actionItemsLine ? 
-      actionItemsLine.replace('Action Items:', '').split(',').map(s => s.trim()).filter(Boolean) : 
-      [];
+      
+    // Improved action items extraction
+    let actionItems: string[] = [];
+    if (actionItemsLine) {
+      const actionItemsIndex = lines.indexOf(actionItemsLine);
+      // Check if there are numbered action items in the following lines
+      const numberedItems: string[] = [];
+      
+      // Look for numbered list items after "Action Items:" line
+      for (let i = actionItemsIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Match numbered list items like "1. Item text" or "1) Item text"
+        if (/^\d+[\.\)]/.test(line)) {
+          // Remove the number and punctuation
+          const item = line.replace(/^\d+[\.\)]\s*/, '').trim();
+          if (item) numberedItems.push(item);
+        } else if (!line.includes(':') && line.length > 0) {
+          // If it's not a new section and not empty, consider it part of action items
+          numberedItems.push(line);
+        } else if (line.includes(':')) {
+          // Stop if we hit a new section
+          break;
+        }
+      }
+      
+      if (numberedItems.length > 0) {
+        // Use the numbered items if found
+        actionItems = numberedItems;
+      } else {
+        // Fall back to comma-separated parsing
+        actionItems = actionItemsLine
+          .replace('Action Items:', '')
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+    }
+    
+    // If we still don't have action items, generate some based on the text
+    if (actionItems.length === 0) {
+      console.log("No action items found in response, generating default ones");
+      
+      // Generate at least one default action item based on the content
+      if (text.length > 10) {
+        const firstSentence = text.split('.')[0];
+        if (firstSentence) {
+          actionItems.push(`Follow up on "${firstSentence.trim()}"`);
+        }
+      }
+      
+      // Add a generic action item
+      actionItems.push("Review and expand on these notes");
+    }
     
     const result = {
       title,
