@@ -9,47 +9,29 @@ let textProcessor: any = null;
 
 async function initModels() {
   if (!transcriber) {
-    toast.loading("Loading transcription model...");
     try {
-      // Try WebGPU first, fallback to CPU
-      try {
-        transcriber = await pipeline(
-          "automatic-speech-recognition",
-          "onnx-community/whisper-tiny.en",
-          { device: "webgpu" }
-        );
-      } catch (error) {
-        console.log("WebGPU not available, falling back to CPU", error);
-        transcriber = await pipeline(
-          "automatic-speech-recognition",
-          "onnx-community/whisper-tiny.en"
-        );
-      }
+      toast.loading("Loading transcription model...");
+      transcriber = await pipeline(
+        "automatic-speech-recognition",
+        "onnx-community/whisper-tiny.en"
+      );
     } catch (error) {
       console.error("Failed to initialize transcription model:", error);
+      toast.error("Could not load transcription model. Please check your connection.");
       throw new Error("Failed to initialize transcription model");
     }
   }
   
   if (!textProcessor) {
-    toast.loading("Loading text analysis model...");
     try {
-      // Try WebGPU first, fallback to CPU
-      try {
-        textProcessor = await pipeline(
-          "text-generation",
-          "onnx-community/gpt2-medium",
-          { device: "webgpu" }
-        );
-      } catch (error) {
-        console.log("WebGPU not available, falling back to CPU", error);
-        textProcessor = await pipeline(
-          "text-generation",
-          "onnx-community/gpt2-medium"
-        );
-      }
+      toast.loading("Loading text analysis model...");
+      textProcessor = await pipeline(
+        "text-generation",
+        "onnx-community/gpt2-medium"
+      );
     } catch (error) {
       console.error("Failed to initialize text processing model:", error);
+      toast.error("Could not load text processing model. Please check your connection.");
       throw new Error("Failed to initialize text processing model");
     }
   }
@@ -60,12 +42,27 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     await initModels();
     toast.loading("Transcribing your thoughts...");
     
-    // Convert blob to array buffer for better compatibility
+    // Convert audio blob to array buffer
     const arrayBuffer = await audioBlob.arrayBuffer();
     
+    // Create float32 array from array buffer
+    const audioData = new Float32Array(arrayBuffer);
+    
     // Transcribe audio
-    const transcription = await transcriber({ data: arrayBuffer });
-    const text = transcription.text;
+    const transcription = await transcriber({
+      data: audioData,
+      sampling_rate: 16000 // Standard sampling rate for Whisper
+    });
+    
+    if (!transcription || !transcription.text) {
+      throw new Error("No transcription result");
+    }
+    
+    const text = transcription.text.trim();
+    
+    if (!text) {
+      throw new Error("Empty transcription result");
+    }
     
     // Process the transcription
     const result = await processTranscription(text);
@@ -81,7 +78,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     console.error("Transcription error:", error);
     toast.dismiss();
     toast.error("Failed to transcribe audio. Please try again.");
-    throw new Error("Failed to transcribe audio");
+    throw error;
   }
 }
 
@@ -102,6 +99,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     const response = await textProcessor(prompt, {
       max_new_tokens: 200,
       temperature: 0.5,
+      do_sample: false
     });
     
     // Parse the generated response
@@ -142,6 +140,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     console.error("Processing error:", error);
     toast.dismiss();
     toast.error("Failed to analyze transcription. Please try again.");
-    throw new Error("Failed to process transcription");
+    throw error;
   }
 }
+

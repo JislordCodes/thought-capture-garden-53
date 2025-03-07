@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -47,34 +46,13 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000
         } 
       });
       
-      // Check for supported MIME types
-      const mimeTypes = [
-        'audio/webm',
-        'audio/mp4',
-        'audio/ogg;codecs=opus',
-        'audio/wav'
-      ];
-      
-      let supportedMimeType = '';
-      for (const type of mimeTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          supportedMimeType = type;
-          break;
-        }
-      }
-      
-      if (!supportedMimeType) {
-        throw new Error("No supported audio MIME type found on this browser");
-      }
-      
-      console.log("Using MIME type:", supportedMimeType);
-      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: supportedMimeType
+        mimeType: 'audio/webm'
       });
       
       mediaRecorderRef.current = mediaRecorder;
@@ -87,29 +65,29 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       };
       
       mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length === 0) {
-          toast.error("No audio recorded. Please try again.");
-          return;
-        }
-        
-        const audioBlob = new Blob(audioChunksRef.current, { type: supportedMimeType });
-        
-        if (audioBlob.size > 0) {
-          setStatus(prev => ({ ...prev, isProcessing: true }));
-          try {
-            const result = await transcribeAudio(audioBlob);
-            onTranscriptionComplete(result);
-          } catch (error) {
-            console.error("Error processing recording:", error);
-            toast.error("Failed to process your recording. Please try again.");
-          } finally {
-            setStatus(prev => ({ ...prev, isProcessing: false }));
+        try {
+          if (audioChunksRef.current.length === 0) {
+            toast.error("No audio recorded. Please try again.");
+            return;
           }
-        } else {
-          toast.error("Empty recording detected. Please try again.");
+          
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          
+          if (audioBlob.size === 0) {
+            toast.error("Empty recording detected. Please try again.");
+            return;
+          }
+          
+          setStatus(prev => ({ ...prev, isProcessing: true }));
+          
+          const result = await transcribeAudio(audioBlob);
+          onTranscriptionComplete(result);
+        } catch (error) {
+          console.error("Error processing recording:", error);
+        } finally {
+          setStatus(prev => ({ ...prev, isProcessing: false }));
+          stream.getTracks().forEach(track => track.stop());
         }
-        
-        stream.getTracks().forEach(track => track.stop());
       };
       
       mediaRecorder.start(1000);
