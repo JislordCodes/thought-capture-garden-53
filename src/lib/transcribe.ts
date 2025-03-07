@@ -1,3 +1,4 @@
+
 import { TranscriptionResult } from "@/types";
 import { toast } from "@/hooks/use-sonner";
 
@@ -12,20 +13,17 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     // Convert the audio blob to base64
     const base64Audio = await blobToBase64(audioBlob);
     
-    // Call Groq API for translation instead of transcription
-    const transcription = await fetchTranslation(base64Audio);
+    // Call Groq API for transcription
+    const transcription = await fetchTranscription(base64Audio);
     
-    // Handle empty or very short responses better
-    if (!transcription || transcription.trim().length <= 1) {
-      console.error("Empty or very short translation result:", transcription);
-      throw new Error("Translation returned empty or minimal text. Please try recording again with clearer speech.");
+    if (!transcription) {
+      throw new Error("No transcription result");
     }
     
-    // Clean up the transcription text
-    const text = cleanTranscriptionText(transcription);
+    const text = transcription.trim();
     
     if (!text) {
-      throw new Error("Empty transcription result after cleaning");
+      throw new Error("Empty transcription result");
     }
     
     // Process the transcription
@@ -41,24 +39,9 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
   } catch (error) {
     console.error("Transcription error:", error);
     toast.dismiss();
-    toast.error(error instanceof Error ? error.message : "Failed to transcribe audio. Please try again.");
+    toast.error("Failed to transcribe audio. Please try again.");
     throw error;
   }
-}
-
-// Clean up transcription text for better results
-function cleanTranscriptionText(text: string): string {
-  // Remove extra whitespace
-  let cleaned = text.trim();
-  
-  // Fix common transcription artifacts
-  cleaned = cleaned.replace(/\s+/g, ' ');
-  cleaned = cleaned.replace(/(\w)\.(\w)/g, '$1. $2'); // Add space after periods
-  
-  // Fix capitalization of sentences
-  cleaned = cleaned.replace(/\. ([a-z])/g, (match, letter) => `. ${letter.toUpperCase()}`);
-  
-  return cleaned;
 }
 
 // Convert blob to base64
@@ -76,9 +59,12 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// Fetch translation from Groq API
-async function fetchTranslation(base64Audio: string): Promise<string> {
+// Fetch transcription from Groq API
+async function fetchTranscription(base64Audio: string): Promise<string> {
   try {
+    // Create FormData for the audio file
+    const formData = new FormData();
+    
     // Convert base64 back to blob for sending
     const byteCharacters = atob(base64Audio);
     const byteNumbers = new Array(byteCharacters.length);
@@ -88,28 +74,17 @@ async function fetchTranslation(base64Audio: string): Promise<string> {
     }
     
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'audio/webm;codecs=opus' });
+    const blob = new Blob([byteArray], { type: 'audio/webm' });
     
-    console.log("Audio blob size for API:", blob.size, "bytes");
-    
-    // Check if blob is too small (likely empty audio)
-    if (blob.size < 1000) {
-      throw new Error("Audio recording appears to be empty or too short. Please try again.");
-    }
-    
-    // Create FormData for the API request
-    const formData = new FormData();
-    
-    // Add the file to FormData with optimized settings
+    // Add the file to FormData
     formData.append('file', blob, 'recording.webm');
+    // Use "whisper-large-v3" instead of "whisper-1"
     formData.append('model', 'whisper-large-v3');
-    formData.append('response_format', 'json');
-    formData.append('temperature', '0.2');
     
-    console.log("Sending translation request to Groq API");
+    console.log("Sending transcription request to Groq with model: whisper-large-v3");
     
-    // Call the Groq API using translations endpoint
-    const response = await fetch(`${GROQ_API_URL}/audio/translations`, {
+    // Call the Groq API
+    const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`
@@ -120,15 +95,13 @@ async function fetchTranslation(base64Audio: string): Promise<string> {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Groq API error:', errorData);
-      throw new Error(`Failed to translate audio: ${errorData.error?.message || 'Unknown API error'}`);
+      throw new Error('Failed to transcribe audio with Groq API');
     }
     
     const data = await response.json();
-    console.log("Translation API response:", data);
-    
-    return data.text || "";
+    return data.text;
   } catch (error) {
-    console.error("Error in translation:", error);
+    console.error("Error in transcription:", error);
     throw error;
   }
 }
@@ -155,7 +128,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     Keywords: [keyword1], [keyword2], [keyword3], [keyword4], [keyword5]
     Action Items: [action1], [action2], [action3]`;
     
-    // Call Groq API for text analysis with increased temperature for more creative analysis
+    // Call Groq API for text analysis
     const response = await fetch(`${GROQ_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -167,14 +140,14 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
         messages: [
           {
             role: 'system',
-            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items. Be precise and accurate in your analysis.'
+            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.4, // Slightly lower temperature for more consistent results
+        temperature: 0.5,
         max_tokens: 800
       })
     });
@@ -191,7 +164,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     // Parse the response
     const lines = analysisText.split('\n').filter(Boolean);
     
-    // Extract components with improved parsing
+    // Extract components (improved parsing)
     const titleLine = lines.find(line => line.includes('Title:'));
     const summaryLine = lines.find(line => line.includes('Summary:'));
     const categoriesLine = lines.find(line => line.includes('Categories:'));
@@ -199,24 +172,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     const actionItemsLine = lines.find(line => line.includes('Action Items:'));
     
     const title = titleLine ? titleLine.replace('Title:', '').trim() : 'Untitled Note';
-    
-    // Handle multi-line summary case
-    let summary = '';
-    if (summaryLine) {
-      const summaryIndex = lines.indexOf(summaryLine);
-      summary = summaryLine.replace('Summary:', '').trim();
-      
-      // Check if next line is not a new section and add it to summary
-      if (summaryIndex < lines.length - 1 && 
-          !lines[summaryIndex + 1].includes('Categories:') && 
-          !lines[summaryIndex + 1].includes('Keywords:') && 
-          !lines[summaryIndex + 1].includes('Action Items:')) {
-        summary += ' ' + lines[summaryIndex + 1].trim();
-      }
-    } else {
-      summary = 'No summary available';
-    }
-    
+    const summary = summaryLine ? summaryLine.replace('Summary:', '').trim() : 'No summary available';
     const categories = categoriesLine ? 
       categoriesLine.replace('Categories:', '').split(',').map(s => s.trim()).filter(Boolean) : 
       [];
