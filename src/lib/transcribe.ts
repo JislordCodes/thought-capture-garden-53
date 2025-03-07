@@ -10,11 +10,8 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
   try {
     toast.loading("Transcribing your thoughts...");
     
-    // Convert the audio blob to base64
-    const base64Audio = await blobToBase64(audioBlob);
-    
-    // Call Groq API for transcription
-    const transcription = await fetchTranscription(base64Audio);
+    // Call Groq API for transcription - sending the raw blob directly
+    const transcription = await fetchTranscription(audioBlob);
     
     // Handle empty or very short responses better
     if (!transcription || transcription.trim().length <= 1) {
@@ -62,39 +59,13 @@ function cleanTranscriptionText(text: string): string {
   return cleaned;
 }
 
-// Convert blob to base64
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      // Extract the base64 data (remove the data URL prefix)
-      const base64Data = base64String.split(',')[1];
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-// Fetch transcription from Groq API
-async function fetchTranscription(base64Audio: string): Promise<string> {
+// Fetch transcription from Groq API - simplified to send the raw blob directly
+async function fetchTranscription(audioBlob: Blob): Promise<string> {
   try {
-    // Convert base64 back to blob for sending
-    const byteCharacters = atob(base64Audio);
-    const byteNumbers = new Array(byteCharacters.length);
-    
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'audio/webm;codecs=opus' });
-    
-    console.log("Audio blob size for API:", blob.size, "bytes");
+    console.log("Audio blob size for API:", audioBlob.size, "bytes");
     
     // Check if blob is too small (likely empty audio)
-    if (blob.size < 1000) {
+    if (audioBlob.size < 1000) {
       throw new Error("Audio recording appears to be empty or too short. Please try again.");
     }
     
@@ -102,7 +73,7 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     const formData = new FormData();
     
     // Add the file to FormData with optimized settings
-    formData.append('file', blob, 'recording.webm');
+    formData.append('file', audioBlob, 'recording.webm');
     formData.append('model', 'whisper-large-v3');
     formData.append('response_format', 'json');
     
