@@ -23,6 +23,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -38,6 +39,10 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       if (mediaRecorderRef.current && status.isRecording) {
         mediaRecorderRef.current.stop();
       }
+      // Ensure microphone is released when component unmounts
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, [status.isRecording]);
   
@@ -49,15 +54,23 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000, // Higher sample rate for better quality
-          channelCount: 1 // Mono for speech is better than stereo
+          sampleRate: 48000,
+          channelCount: 1
         }
       });
       
-      // Create media recorder with high-quality WebM format optimized for voice
+      // Store stream reference for cleanup
+      micStreamRef.current = stream;
+      
+      // Check support for preferred codec
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : 'audio/webm';
+      
+      // Create media recorder with high-quality settings
       const options = { 
-        mimeType: 'audio/webm;codecs=opus', // Opus codec provides good speech quality
-        audioBitsPerSecond: 128000 // Higher bitrate for clearer audio
+        mimeType, 
+        audioBitsPerSecond: 128000
       };
       
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -78,10 +91,15 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             return;
           }
           
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm; codecs=opus' });
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           
           if (audioBlob.size === 0) {
             toast.error("Empty recording detected. Please try again.");
+            return;
+          }
+          
+          if (audioBlob.size < 1000) {
+            toast.error("Recording too short. Please try speaking louder or longer.");
             return;
           }
           
@@ -98,15 +116,19 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           onTranscriptionComplete(result);
         } catch (error) {
           console.error("Error processing recording:", error);
-          toast.error("Failed to process recording. Please try again.");
+          toast.error(error instanceof Error ? error.message : "Failed to process recording. Please try again.");
         } finally {
           setStatus(prev => ({ ...prev, isProcessing: false }));
-          stream.getTracks().forEach(track => track.stop());
+          // Release microphone access
+          if (micStreamRef.current) {
+            micStreamRef.current.getTracks().forEach(track => track.stop());
+            micStreamRef.current = null;
+          }
         }
       };
       
       // Start recording with smaller timeslice for more consistent chunks
-      mediaRecorder.start(250); // Collect data every 250ms for more consistent chunks
+      mediaRecorder.start(100); // Collect data more frequently
       
       setStatus({
         isRecording: true,
@@ -119,7 +141,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         setStatus(prev => ({ ...prev, duration: prev.duration + 1 }));
       }, 1000);
       
-      toast.success("Recording started. Capture your thoughts!");
+      toast.success("Recording started. Speak clearly and a bit louder than normal.");
       
     } catch (error) {
       console.error("Error starting recording:", error);
@@ -142,7 +164,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   return (
     <div className="flex flex-col items-center justify-center gap-3">
       {status.isRecording && (
-        <div className="text-sm font-medium animate-fade-in">
+        <div className="text-sm font-medium animate-pulse">
           {formatDuration(status.duration)}
         </div>
       )}
@@ -154,7 +176,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           "w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300",
           "focus:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2",
           status.isRecording 
-            ? "bg-red-500 hover:bg-red-600 text-white animate-pulse-recording" 
+            ? "bg-red-500 hover:bg-red-600 text-white animate-pulse" 
             : "glass-button text-primary hover:text-primary-foreground hover:bg-primary"
         )}
         aria-label={status.isRecording ? "Stop recording" : "Start recording"}
@@ -175,6 +197,11 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             ? "Tap to stop recording" 
             : "Tap to start recording"}
       </p>
+      {status.isRecording && (
+        <div className="text-xs text-muted-foreground max-w-[200px] text-center">
+          Speak clearly and at a normal pace for best results
+        </div>
+      )}
     </div>
   );
 };
