@@ -18,6 +18,7 @@ export async function getNotes(): Promise<Note[]> {
       ...note,
       createdAt: new Date(note.created_at),
       updatedAt: new Date(note.updated_at),
+      actionItems: note.action_items || [], // Ensure actionItems are mapped from action_items
     })) as Note[];
   } catch (error) {
     console.error('Error fetching notes:', error);
@@ -28,6 +29,7 @@ export async function getNotes(): Promise<Note[]> {
 
 export async function getNoteById(id: string): Promise<Note | null> {
   try {
+    console.log('Fetching note with ID:', id);
     const { data, error } = await supabase
       .from('notes')
       .select('*')
@@ -37,15 +39,19 @@ export async function getNoteById(id: string): Promise<Note | null> {
     if (error) {
       if (error.code === 'PGRST116') {
         // Record not found
+        console.log('Note not found:', id);
         return null;
       }
       throw error;
     }
     
+    console.log('Note data retrieved:', data);
+    
     return {
       ...data,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
+      actionItems: data.action_items || [], // Ensure actionItems are mapped from action_items
     } as Note;
   } catch (error) {
     console.error('Error fetching note:', error);
@@ -91,7 +97,7 @@ export async function createNote(result: TranscriptionResult): Promise<Note | nu
       ...data,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
-      actionItems: data.action_items,
+      actionItems: data.action_items || [], // Ensure actionItems are mapped from action_items
     } as Note;
   } catch (error) {
     console.error('Error creating note:', error);

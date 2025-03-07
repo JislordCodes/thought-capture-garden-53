@@ -28,14 +28,20 @@ const NoteDetailPage = () => {
   
   useEffect(() => {
     const loadNote = async () => {
-      if (!id) return;
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
       try {
+        console.log('Loading note with ID:', id);
         const fetchedNote = await getNoteById(id);
+        console.log('Fetched note:', fetchedNote);
         setNote(fetchedNote);
       } catch (error) {
         console.error("Error loading note:", error);
+        toast.error("Failed to load note");
       } finally {
         setIsLoading(false);
       }
@@ -95,6 +101,9 @@ const NoteDetailPage = () => {
     );
   }
 
+  // Safety check for actionItems - ensure it's always an array
+  const actionItems = Array.isArray(note.actionItems) ? note.actionItems : [];
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header title={note.title} showBackButton />
@@ -102,7 +111,7 @@ const NoteDetailPage = () => {
       <main className="flex-1 container max-w-3xl mx-auto px-4 pt-20 pb-10">
         <div className="animate-fade-in space-y-6 py-6">
           <div className="flex flex-wrap gap-2 items-center">
-            {note.categories.map((category, index) => (
+            {note.categories && note.categories.map((category, index) => (
               <span 
                 key={index}
                 className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-accent text-accent-foreground"
@@ -132,7 +141,7 @@ const NoteDetailPage = () => {
               Key Insights
             </h3>
             <div className="pl-2 space-y-2">
-              {note.keywords.map((keyword, index) => (
+              {note.keywords && note.keywords.map((keyword, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2" />
                   <p>{keyword}</p>
@@ -147,7 +156,7 @@ const NoteDetailPage = () => {
               Action Items
             </h3>
             <div className="pl-2 space-y-2">
-              {note.actionItems.map((item, index) => (
+              {actionItems.map((item, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-2" />
                   <p>{item}</p>
