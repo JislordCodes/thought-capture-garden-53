@@ -43,24 +43,21 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
-      // Request audio access with optimal configuration for translation
+      // Request audio access with proper configuration for high quality
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000, // Higher sample rate for better quality
-          channelCount: 1 // Mono for speech is better than stereo
+          sampleRate: 48000,
+          channelCount: 1
         }
       });
       
-      // Create media recorder with high-quality WebM format optimized for voice
-      const options = { 
-        mimeType: 'audio/webm;codecs=opus', // Opus codec provides good speech quality
-        audioBitsPerSecond: 128000 // Higher bitrate for clearer audio
-      };
-      
-      const mediaRecorder = new MediaRecorder(stream, options);
+      // Create media recorder with WebM format (widely supported for speech)
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -78,7 +75,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             return;
           }
           
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm; codecs=opus' });
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           
           if (audioBlob.size === 0) {
             toast.error("Empty recording detected. Please try again.");
@@ -98,15 +95,14 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           onTranscriptionComplete(result);
         } catch (error) {
           console.error("Error processing recording:", error);
-          toast.error("Failed to process recording. Please try again.");
         } finally {
           setStatus(prev => ({ ...prev, isProcessing: false }));
           stream.getTracks().forEach(track => track.stop());
         }
       };
       
-      // Start recording with smaller timeslice for more consistent chunks
-      mediaRecorder.start(250); // Collect data every 250ms for more consistent chunks
+      // Start recording with timeslice to collect data every second
+      mediaRecorder.start(1000);
       
       setStatus({
         isRecording: true,
