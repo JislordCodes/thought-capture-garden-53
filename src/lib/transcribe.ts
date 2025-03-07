@@ -78,7 +78,10 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     
     // Add the file to FormData
     formData.append('file', blob, 'recording.webm');
-    formData.append('model', 'whisper-1');
+    // Use "whisper-large-v3" instead of "whisper-1"
+    formData.append('model', 'whisper-large-v3');
+    
+    console.log("Sending transcription request to Groq with model: whisper-large-v3");
     
     // Call the Groq API
     const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
