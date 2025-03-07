@@ -1,6 +1,5 @@
-
 import { TranscriptionResult } from "@/types";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-sonner";
 
 // This is a mock implementation - in a real app, you would use an actual AI service
 export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResult> {

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Tag, ListChecks, KeyRound, ArrowLeft, Trash2 } from 'lucide-react';
 import { Note } from '@/types';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/hooks/use-sonner';
 import Header from '@/components/Header';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/hooks/use-sonner';
 import { cn } from '@/lib/utils';
 import { RecordingStatus } from '@/types';
 import { transcribeAudio } from '@/lib/transcribe';

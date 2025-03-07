@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/hooks/use-sonner';
 import { TranscriptionResult, Note } from '@/types';
 import Header from '@/components/Header';
 import RecordButton from '@/components/RecordButton';
