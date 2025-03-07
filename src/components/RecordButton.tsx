@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -24,7 +23,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   
-  // Format duration to MM:SS
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -32,7 +30,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   };
   
   useEffect(() => {
-    // Clean up when component unmounts
     return () => {
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
@@ -69,7 +66,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         
-        // Only process if there's actual content
         if (audioBlob.size > 0) {
           setStatus(prev => ({ ...prev, isProcessing: true }));
           try {
@@ -83,14 +79,11 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           }
         }
         
-        // Clean up media tracks
         stream.getTracks().forEach(track => track.stop());
       };
       
-      // Setup data collection every second
       mediaRecorder.start(1000);
       
-      // Start timer
       setStatus({
         isRecording: true,
         isPaused: false,

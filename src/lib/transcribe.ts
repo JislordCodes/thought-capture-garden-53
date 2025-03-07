@@ -1,46 +1,55 @@
 
+import { pipeline } from "@huggingface/transformers";
 import { TranscriptionResult } from "@/types";
 import { toast } from "@/hooks/use-sonner";
 
-// Function to transcribe audio using OpenAI's API through a Supabase Edge Function
+// Initialize models
+let transcriber: any = null;
+let textProcessor: any = null;
+
+async function initModels() {
+  if (!transcriber) {
+    toast.loading("Loading transcription model...");
+    transcriber = await pipeline(
+      "automatic-speech-recognition",
+      "onnx-community/whisper-tiny.en",
+      { device: "webgpu" }
+    );
+  }
+  
+  if (!textProcessor) {
+    toast.loading("Loading text analysis model...");
+    textProcessor = await pipeline(
+      "text-generation",
+      "onnx-community/gpt2-medium",
+      { device: "webgpu" }
+    );
+  }
+}
+
 export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResult> {
   try {
-    // Convert audio blob to base64
-    const reader = new FileReader();
-    const audioBase64Promise = new Promise<string>((resolve) => {
-      reader.onloadend = () => {
-        // Extract the base64 data part from the result
-        const base64String = reader.result as string;
-        const base64Data = base64String.split(',')[1];
-        resolve(base64Data);
-      };
-    });
-    
-    reader.readAsDataURL(audioBlob);
-    const audioBase64 = await audioBase64Promise;
-    
-    // Show processing toast
+    await initModels();
     toast.loading("Transcribing your thoughts...");
     
-    // Call the Supabase Edge Function for transcription
-    const response = await fetch('/api/transcribe-audio', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ audio: audioBase64 }),
-    });
+    // Convert blob to URL for the model
+    const audioUrl = URL.createObjectURL(audioBlob);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to transcribe audio');
-    }
+    // Transcribe audio
+    const transcription = await transcriber(audioUrl);
+    const text = transcription.text;
     
-    const result = await response.json();
+    // Process the transcription
+    const result = await processTranscription(text);
+    
+    URL.revokeObjectURL(audioUrl);
     toast.dismiss();
     toast.success("Transcription complete!");
     
-    return result;
+    return {
+      text,
+      ...result
+    };
   } catch (error) {
     console.error("Transcription error:", error);
     toast.dismiss();
@@ -49,36 +58,41 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
   }
 }
 
-// Process transcription using OpenAI to extract insights
 export async function processTranscription(text: string): Promise<Omit<TranscriptionResult, 'text'>> {
   try {
     toast.loading("Analyzing your thoughts...");
     
-    // Call the Supabase Edge Function for processing
-    const response = await fetch('/api/process-transcription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
+    // Generate a structured analysis prompt
+    const prompt = `Analyze this text:
+    "${text}"
+    
+    Title: 
+    Summary: 
+    Categories: 
+    Keywords: 
+    Action Items:`;
+    
+    const response = await textProcessor(prompt, {
+      max_new_tokens: 200,
+      temperature: 0.5,
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to process transcription');
-    }
+    // Parse the generated response
+    const output = response[0].generated_text.split('\n').filter(Boolean);
     
-    const result = await response.json();
+    // Extract components (basic parsing, could be improved)
+    const result = {
+      title: output[1]?.replace('Title:', '').trim() || 'Untitled Note',
+      summary: output[2]?.replace('Summary:', '').trim() || 'No summary available',
+      categories: output[3]?.replace('Categories:', '').split(',').map(s => s.trim()) || [],
+      keywords: output[4]?.replace('Keywords:', '').split(',').map(s => s.trim()) || [],
+      actionItems: output[5]?.replace('Action Items:', '').split(',').map(s => s.trim()) || [],
+    };
+    
     toast.dismiss();
     toast.success("Analysis complete!");
     
-    return {
-      title: result.title,
-      summary: result.summary,
-      categories: result.categories,
-      keywords: result.keywords,
-      actionItems: result.actionItems,
-    };
+    return result;
   } catch (error) {
     console.error("Processing error:", error);
     toast.dismiss();
