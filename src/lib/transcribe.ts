@@ -20,7 +20,8 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
       throw new Error("No transcription result");
     }
     
-    const text = transcription.trim();
+    // Clean up the transcription text
+    const text = cleanTranscriptionText(transcription);
     
     if (!text) {
       throw new Error("Empty transcription result");
@@ -42,6 +43,21 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     toast.error("Failed to transcribe audio. Please try again.");
     throw error;
   }
+}
+
+// Clean up transcription text for better results
+function cleanTranscriptionText(text: string): string {
+  // Remove extra whitespace
+  let cleaned = text.trim();
+  
+  // Fix common transcription artifacts
+  cleaned = cleaned.replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/(\w)\.(\w)/g, '$1. $2'); // Add space after periods
+  
+  // Fix capitalization of sentences
+  cleaned = cleaned.replace(/\. ([a-z])/g, (match, letter) => `. ${letter.toUpperCase()}`);
+  
+  return cleaned;
 }
 
 // Convert blob to base64
@@ -78,10 +94,14 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     
     // Add the file to FormData
     formData.append('file', blob, 'recording.webm');
-    // Use "whisper-large-v3" instead of "whisper-1"
+    // Use whisper-large-v3 model for better accuracy
     formData.append('model', 'whisper-large-v3');
+    // Add additional parameters for improved accuracy
+    formData.append('language', 'en'); // Specify English for better results
+    formData.append('response_format', 'json');
+    formData.append('temperature', '0.2'); // Lower temperature for more accurate results
     
-    console.log("Sending transcription request to Groq with model: whisper-large-v3");
+    console.log("Sending optimized transcription request to Groq");
     
     // Call the Groq API
     const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
@@ -128,7 +148,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     Keywords: [keyword1], [keyword2], [keyword3], [keyword4], [keyword5]
     Action Items: [action1], [action2], [action3]`;
     
-    // Call Groq API for text analysis
+    // Call Groq API for text analysis with increased temperature for more creative analysis
     const response = await fetch(`${GROQ_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -140,14 +160,14 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
         messages: [
           {
             role: 'system',
-            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items.'
+            content: 'You are an AI assistant that analyzes spoken thoughts and ideas, extracting meaningful insights and action items. Be precise and accurate in your analysis.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.5,
+        temperature: 0.4, // Slightly lower temperature for more consistent results
         max_tokens: 800
       })
     });
@@ -164,7 +184,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     // Parse the response
     const lines = analysisText.split('\n').filter(Boolean);
     
-    // Extract components (improved parsing)
+    // Extract components with improved parsing
     const titleLine = lines.find(line => line.includes('Title:'));
     const summaryLine = lines.find(line => line.includes('Summary:'));
     const categoriesLine = lines.find(line => line.includes('Categories:'));
@@ -172,7 +192,24 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     const actionItemsLine = lines.find(line => line.includes('Action Items:'));
     
     const title = titleLine ? titleLine.replace('Title:', '').trim() : 'Untitled Note';
-    const summary = summaryLine ? summaryLine.replace('Summary:', '').trim() : 'No summary available';
+    
+    // Handle multi-line summary case
+    let summary = '';
+    if (summaryLine) {
+      const summaryIndex = lines.indexOf(summaryLine);
+      summary = summaryLine.replace('Summary:', '').trim();
+      
+      // Check if next line is not a new section and add it to summary
+      if (summaryIndex < lines.length - 1 && 
+          !lines[summaryIndex + 1].includes('Categories:') && 
+          !lines[summaryIndex + 1].includes('Keywords:') && 
+          !lines[summaryIndex + 1].includes('Action Items:')) {
+        summary += ' ' + lines[summaryIndex + 1].trim();
+      }
+    } else {
+      summary = 'No summary available';
+    }
+    
     const categories = categoriesLine ? 
       categoriesLine.replace('Categories:', '').split(',').map(s => s.trim()).filter(Boolean) : 
       [];

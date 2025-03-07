@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -43,21 +42,24 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
-      // Request audio access with proper configuration for high quality
+      // Request audio access with optimal configuration for speech recognition
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1
+          sampleRate: 48000, // Higher sample rate for better quality
+          channelCount: 1 // Mono for speech is better than stereo
         }
       });
       
-      // Create media recorder with WebM format (widely supported for speech)
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
+      // Create media recorder with high-quality WebM format
+      const options = { 
+        mimeType: 'audio/webm;codecs=opus', // Opus codec provides good speech quality
+        audioBitsPerSecond: 128000 // Higher bitrate for clearer audio
+      };
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -75,7 +77,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             return;
           }
           
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm; codecs=opus' });
           
           if (audioBlob.size === 0) {
             toast.error("Empty recording detected. Please try again.");
@@ -101,8 +103,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         }
       };
       
-      // Start recording with timeslice to collect data every second
-      mediaRecorder.start(1000);
+      // Start recording with timeslice to collect data frequently
+      mediaRecorder.start(500); // Collect data every 500ms for more consistent chunks
       
       setStatus({
         isRecording: true,
