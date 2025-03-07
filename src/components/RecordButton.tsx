@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -42,15 +43,18 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Request audio access with proper configuration for high quality
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 16000
-        } 
+          sampleRate: 48000,
+          channelCount: 1
+        }
       });
       
+      // Create media recorder with WebM format (widely supported for speech)
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm'
       });
@@ -78,6 +82,13 @@ const RecordButton: React.FC<RecordButtonProps> = ({
             return;
           }
           
+          // Log blob info for debugging
+          console.log("Audio blob info:", {
+            size: audioBlob.size,
+            type: audioBlob.type,
+            chunks: audioChunksRef.current.length
+          });
+          
           setStatus(prev => ({ ...prev, isProcessing: true }));
           
           const result = await transcribeAudio(audioBlob);
@@ -90,6 +101,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         }
       };
       
+      // Start recording with timeslice to collect data every second
       mediaRecorder.start(1000);
       
       setStatus({
