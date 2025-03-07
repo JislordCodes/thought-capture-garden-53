@@ -8,6 +8,12 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1";
 
 export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResult> {
   try {
+    // Log the incoming audio blob for debugging
+    console.log("Starting transcription for audio blob:", {
+      size: audioBlob.size,
+      type: audioBlob.type
+    });
+    
     toast.loading("Transcribing your thoughts...");
     
     // Call Groq API for transcription - sending the raw blob directly
@@ -21,6 +27,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     
     // Clean up the transcription text
     const text = cleanTranscriptionText(transcription);
+    console.log("Transcription successful:", text);
     
     if (!text) {
       throw new Error("Empty transcription result after cleaning");
@@ -28,6 +35,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     
     // Process the transcription
     const result = await processTranscription(text);
+    console.log("Processing successful:", result);
     
     toast.dismiss();
     toast.success("Transcription complete!");
@@ -62,7 +70,7 @@ function cleanTranscriptionText(text: string): string {
 // Fetch transcription from Groq API - simplified to send the raw blob directly
 async function fetchTranscription(audioBlob: Blob): Promise<string> {
   try {
-    console.log("Audio blob size for API:", audioBlob.size, "bytes");
+    console.log("Audio blob size for API:", audioBlob.size, "bytes", "type:", audioBlob.type);
     
     // Check if blob is too small (likely empty audio)
     if (audioBlob.size < 1000) {
@@ -86,6 +94,11 @@ async function fetchTranscription(audioBlob: Blob): Promise<string> {
         'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: formData
+    });
+    
+    console.log("Got response from Groq API:", {
+      status: response.status,
+      statusText: response.statusText
     });
     
     if (!response.ok) {
@@ -160,14 +173,19 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
       })
     });
     
+    console.log("Analysis API response status:", response.status);
+    
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Groq API error:', errorData);
+      console.error('Groq API error during analysis:', errorData);
       throw new Error('Failed to analyze transcription with Groq API');
     }
     
     const data = await response.json();
+    console.log("Analysis data received:", data);
+    
     const analysisText = data.choices[0].message.content;
+    console.log("Raw analysis text:", analysisText);
     
     // Parse the response
     const lines = analysisText.split('\n').filter(Boolean);
@@ -216,6 +234,8 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
       actionItems,
     };
     
+    console.log("Final analysis result:", result);
+    
     toast.dismiss();
     toast.success("Analysis complete!");
     
@@ -223,7 +243,7 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
   } catch (error) {
     console.error("Processing error:", error);
     toast.dismiss();
-    toast.error("Failed to analyze transcription. Please try again.");
+    toast.error(error instanceof Error ? error.message : "Failed to analyze transcription. Please try again.");
     throw error;
   }
 }

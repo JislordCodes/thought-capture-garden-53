@@ -59,6 +59,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         }
       });
       
+      console.log("Microphone access granted");
+      
       // Store stream reference for cleanup
       micStreamRef.current = stream;
       
@@ -67,6 +69,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         ? 'audio/webm;codecs=opus' 
         : 'audio/webm';
       
+      console.log("Using MIME type:", mimeType);
+      
       // Create media recorder with high-quality settings
       const options = { 
         mimeType, 
@@ -74,56 +78,75 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       };
       
       const mediaRecorder = new MediaRecorder(stream, options);
+      console.log("MediaRecorder created with options:", options);
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
+          console.log("Audio chunk received:", event.data.size, "bytes");
           audioChunksRef.current.push(event.data);
         }
       };
       
       mediaRecorder.onstop = async () => {
         try {
+          console.log("Recording stopped, processing audio...");
+          
           if (audioChunksRef.current.length === 0) {
+            console.error("No audio chunks recorded");
             toast.error("No audio recorded. Please try again.");
+            setStatus(prev => ({ ...prev, isProcessing: false }));
             return;
           }
           
+          console.log("Total audio chunks:", audioChunksRef.current.length);
+          console.log("Audio chunk sizes:", audioChunksRef.current.map(chunk => chunk.size));
+          
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           
+          console.log("Created audio blob:", {
+            size: audioBlob.size,
+            type: audioBlob.type
+          });
+          
           if (audioBlob.size === 0) {
+            console.error("Empty audio blob created");
             toast.error("Empty recording detected. Please try again.");
+            setStatus(prev => ({ ...prev, isProcessing: false }));
             return;
           }
           
           if (audioBlob.size < 1000) {
+            console.error("Audio blob too small:", audioBlob.size);
             toast.error("Recording too short. Please try speaking louder or longer.");
+            setStatus(prev => ({ ...prev, isProcessing: false }));
             return;
           }
           
-          // Log blob info for debugging
-          console.log("Audio blob info:", {
-            size: audioBlob.size,
-            type: audioBlob.type,
-            chunks: audioChunksRef.current.length
-          });
-          
           setStatus(prev => ({ ...prev, isProcessing: true }));
           
-          const result = await transcribeAudio(audioBlob);
-          onTranscriptionComplete(result);
+          try {
+            console.log("Sending audio for transcription...");
+            const result = await transcribeAudio(audioBlob);
+            console.log("Transcription complete:", result);
+            onTranscriptionComplete(result);
+          } catch (error) {
+            console.error("Error in transcription process:", error);
+            toast.error(error instanceof Error ? error.message : "Failed to process recording. Please try again.");
+          } finally {
+            setStatus(prev => ({ ...prev, isProcessing: false }));
+            // Release microphone access
+            if (micStreamRef.current) {
+              micStreamRef.current.getTracks().forEach(track => track.stop());
+              micStreamRef.current = null;
+            }
+          }
         } catch (error) {
           console.error("Error processing recording:", error);
           toast.error(error instanceof Error ? error.message : "Failed to process recording. Please try again.");
-        } finally {
           setStatus(prev => ({ ...prev, isProcessing: false }));
-          // Release microphone access
-          if (micStreamRef.current) {
-            micStreamRef.current.getTracks().forEach(track => track.stop());
-            micStreamRef.current = null;
-          }
         }
       };
       
@@ -151,6 +174,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const stopRecording = () => {
     if (mediaRecorderRef.current && status.isRecording) {
+      console.log("Stopping recording...");
       mediaRecorderRef.current.stop();
       
       if (timerRef.current) {

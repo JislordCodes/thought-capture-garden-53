@@ -17,7 +17,7 @@ const Index = () => {
     if (!saved) return [];
     
     try {
-      // Parse the saved notes and ensure dates are properly converted to Date objects
+      // Parse the saved notes and ensure dates are properly converted back to Date objects
       const parsedNotes = JSON.parse(saved);
       return parsedNotes.map((note: any) => ({
         ...note,
@@ -31,35 +31,43 @@ const Index = () => {
   });
 
   const handleTranscriptionComplete = (result: TranscriptionResult) => {
-    // Create a new note from the transcription
-    const newNote: Note = {
-      id: Date.now().toString(),
-      title: result.title,
-      content: result.text,
-      summary: result.summary,
-      categories: result.categories,
-      keywords: result.keywords,
-      actionItems: result.actionItems,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    console.log("Transcription complete, creating note:", result);
+    
+    try {
+      // Create a new note from the transcription
+      const newNote: Note = {
+        id: Date.now().toString(),
+        title: result.title || "Untitled Note",
+        content: result.text || "",
+        summary: result.summary || "No summary available",
+        categories: result.categories || [],
+        keywords: result.keywords || [],
+        actionItems: result.actionItems || [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-    // Add to recent notes
-    const updatedNotes = [newNote, ...recentNotes];
-    setRecentNotes(updatedNotes);
-    
-    // Save to localStorage with proper date handling
-    const notesToSave = updatedNotes.map(note => ({
-      ...note,
-      // Store dates as ISO strings for reliable serialization
-      createdAt: note.createdAt.toISOString(),
-      updatedAt: note.updatedAt.toISOString()
-    }));
-    
-    localStorage.setItem('thought-garden-notes', JSON.stringify(notesToSave));
-    
-    // Navigate to the new note
-    navigate(`/notes/${newNote.id}`);
+      // Add to recent notes
+      const updatedNotes = [newNote, ...recentNotes];
+      setRecentNotes(updatedNotes);
+      
+      // Save to localStorage with proper date handling
+      // Converting dates to ISO strings for reliable serialization
+      const notesToSave = updatedNotes.map(note => ({
+        ...note,
+        createdAt: note.createdAt.toISOString(),
+        updatedAt: note.updatedAt.toISOString()
+      }));
+      
+      localStorage.setItem('thought-garden-notes', JSON.stringify(notesToSave));
+      console.log("Note saved to localStorage:", newNote);
+      
+      // Navigate to the new note
+      navigate(`/notes/${newNote.id}`);
+    } catch (error) {
+      console.error("Error creating note:", error);
+      toast.error("Failed to create note. Please try again.");
+    }
   };
 
   return (
