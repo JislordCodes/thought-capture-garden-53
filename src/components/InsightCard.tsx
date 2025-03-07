@@ -7,7 +7,7 @@ import {
   LightbulbIcon, 
   ArrowRightIcon, 
   TrendingUpIcon, 
-  ConnectionIcon,
+  NetworkIcon,
   CheckCircleIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +25,7 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, className }) => {
       case 'theme':
         return <LightbulbIcon className="h-5 w-5 text-amber-500" />;
       case 'connection':
-        return <ConnectionIcon className="h-5 w-5 text-indigo-500" />;
+        return <NetworkIcon className="h-5 w-5 text-indigo-500" />;
       case 'trend':
         return <TrendingUpIcon className="h-5 w-5 text-emerald-500" />;
       case 'actionRequired':

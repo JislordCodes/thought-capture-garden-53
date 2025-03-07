@@ -8,7 +8,7 @@ import { analyzeNotes } from '@/lib/insights';
 import Header from '@/components/Header';
 import InsightCard from '@/components/InsightCard';
 import EmptyState from '@/components/EmptyState';
-import { ConnectionIcon, LightbulbIcon } from 'lucide-react';
+import { NetworkIcon, LightbulbIcon } from 'lucide-react';
 
 const InsightsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -154,7 +154,7 @@ const InsightsPage: React.FC = () => {
               <EmptyState 
                 title="No insights found"
                 description="Try selecting a different filter or create more notes"
-                icon={<ConnectionIcon className="h-12 w-12 text-muted-foreground" />}
+                icon={<NetworkIcon className="h-12 w-12 text-muted-foreground" />}
               />
             </div>
           )}
