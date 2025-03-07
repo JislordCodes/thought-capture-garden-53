@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -42,7 +43,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
-      // Request audio access with optimal configuration for speech recognition
+      // Request audio access with optimal configuration for translation
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -53,7 +54,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         }
       });
       
-      // Create media recorder with high-quality WebM format
+      // Create media recorder with high-quality WebM format optimized for voice
       const options = { 
         mimeType: 'audio/webm;codecs=opus', // Opus codec provides good speech quality
         audioBitsPerSecond: 128000 // Higher bitrate for clearer audio
@@ -97,14 +98,15 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           onTranscriptionComplete(result);
         } catch (error) {
           console.error("Error processing recording:", error);
+          toast.error("Failed to process recording. Please try again.");
         } finally {
           setStatus(prev => ({ ...prev, isProcessing: false }));
           stream.getTracks().forEach(track => track.stop());
         }
       };
       
-      // Start recording with timeslice to collect data frequently
-      mediaRecorder.start(500); // Collect data every 500ms for more consistent chunks
+      // Start recording with smaller timeslice for more consistent chunks
+      mediaRecorder.start(250); // Collect data every 250ms for more consistent chunks
       
       setStatus({
         isRecording: true,

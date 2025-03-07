@@ -1,4 +1,3 @@
-
 import { TranscriptionResult } from "@/types";
 import { toast } from "@/hooks/use-sonner";
 
@@ -13,11 +12,11 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     // Convert the audio blob to base64
     const base64Audio = await blobToBase64(audioBlob);
     
-    // Call Groq API for transcription
-    const transcription = await fetchTranscription(base64Audio);
+    // Call Groq API for translation instead of transcription
+    const transcription = await fetchTranslation(base64Audio);
     
     if (!transcription) {
-      throw new Error("No transcription result");
+      throw new Error("No translation result");
     }
     
     // Clean up the transcription text
@@ -75,8 +74,8 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// Fetch transcription from Groq API
-async function fetchTranscription(base64Audio: string): Promise<string> {
+// Fetch translation from Groq API (using translations endpoint instead of transcriptions)
+async function fetchTranslation(base64Audio: string): Promise<string> {
   try {
     // Create FormData for the audio file
     const formData = new FormData();
@@ -97,14 +96,13 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     // Use whisper-large-v3 model for better accuracy
     formData.append('model', 'whisper-large-v3');
     // Add additional parameters for improved accuracy
-    formData.append('language', 'en'); // Specify English for better results
     formData.append('response_format', 'json');
     formData.append('temperature', '0.2'); // Lower temperature for more accurate results
     
-    console.log("Sending optimized transcription request to Groq");
+    console.log("Sending translation request to Groq API");
     
-    // Call the Groq API
-    const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
+    // Call the Groq API using translations endpoint instead of transcriptions
+    const response = await fetch(`${GROQ_API_URL}/audio/translations`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`
@@ -115,13 +113,13 @@ async function fetchTranscription(base64Audio: string): Promise<string> {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Groq API error:', errorData);
-      throw new Error('Failed to transcribe audio with Groq API');
+      throw new Error('Failed to translate audio with Groq API');
     }
     
     const data = await response.json();
     return data.text;
   } catch (error) {
-    console.error("Error in transcription:", error);
+    console.error("Error in translation:", error);
     throw error;
   }
 }
