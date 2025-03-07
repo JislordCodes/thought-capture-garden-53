@@ -38,3 +38,16 @@ export interface UserProfile {
   display_name?: string;
   avatar_url?: string;
 }
+
+export interface NoteInsight {
+  id: string;
+  title: string;
+  description: string;
+  relatedNotes: {
+    noteId: string;
+    noteTitle: string;
+    relevance: number;
+  }[];
+  type: 'theme' | 'connection' | 'trend' | 'actionRequired';
+  createdAt: Date;
+}
