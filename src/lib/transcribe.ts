@@ -17,33 +17,38 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     toast.loading("Transcribing your thoughts...");
     
     // First, validate the audio blob
-    if (!audioBlob || audioBlob.size === 0) {
-      throw new Error("Empty audio recording. Please try again and speak clearly.");
+    if (!audioBlob || audioBlob.size < 100) {
+      throw new Error("Empty or too small audio recording. Please try again and speak clearly.");
     }
     
-    // Directly use the audioBlob for transcription
-    const transcription = await fetchTranscription(audioBlob);
-    
-    if (!transcription || transcription.trim().length <= 5) {
-      console.error("Empty or very short transcription result:", transcription);
-      throw new Error("Couldn't detect speech. Please try again with clearer speech.");
+    try {
+      // Directly use the audioBlob for transcription
+      const transcription = await fetchTranscription(audioBlob);
+      
+      if (!transcription || transcription.trim().length <= 5) {
+        console.error("Empty or very short transcription result:", transcription);
+        throw new Error("Couldn't detect speech. Please try again with clearer speech.");
+      }
+      
+      // Clean up the transcription text
+      const text = cleanTranscriptionText(transcription);
+      console.log("Transcription successful:", text);
+      
+      // Process the transcription
+      const result = await processTranscription(text);
+      console.log("Processing successful:", result);
+      
+      toast.dismiss();
+      toast.success("Transcription complete!");
+      
+      return {
+        text,
+        ...result
+      };
+    } catch (error) {
+      console.error("Transcription API error:", error);
+      throw error;
     }
-    
-    // Clean up the transcription text
-    const text = cleanTranscriptionText(transcription);
-    console.log("Transcription successful:", text);
-    
-    // Process the transcription
-    const result = await processTranscription(text);
-    console.log("Processing successful:", result);
-    
-    toast.dismiss();
-    toast.success("Transcription complete!");
-    
-    return {
-      text,
-      ...result
-    };
   } catch (error) {
     console.error("Transcription error:", error);
     toast.dismiss();
@@ -76,15 +81,15 @@ async function fetchTranscription(audioBlob: Blob): Promise<string> {
     });
     
     // Check if blob is too small (likely empty audio)
-    if (audioBlob.size < 1000) {
+    if (audioBlob.size < 100) {
       throw new Error("Audio recording appears to be empty or too short. Please try again.");
     }
     
     // Create FormData for the API request
     const formData = new FormData();
     
-    // Add the file to FormData
-    formData.append('file', audioBlob, 'recording.webm');
+    // Add the file to FormData - make sure we're sending a proper file
+    formData.append('file', new Blob([audioBlob], { type: audioBlob.type }), 'recording.webm');
     formData.append('model', 'whisper-large-v3'); // Using whisper-large-v3 model
     formData.append('response_format', 'json');
     

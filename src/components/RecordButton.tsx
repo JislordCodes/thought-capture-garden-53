@@ -33,10 +33,11 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   useEffect(() => {
     return () => {
+      // Cleanup on component unmount
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
       }
-      if (mediaRecorderRef.current && status.isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
       // Ensure microphone is released when component unmounts
@@ -44,19 +45,23 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         micStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [status.isRecording]);
+  }, []);
   
   const startRecording = async () => {
     try {
       // Reset audio chunks at the start of recording
       audioChunksRef.current = [];
       
+      console.log("Requesting microphone access...");
+      
       // Request audio access with optimal configuration for translation
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 44100
         }
       });
       
@@ -65,6 +70,11 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       // Store stream reference for cleanup
       micStreamRef.current = stream;
       
+      // Check if browser supports MediaRecorder
+      if (typeof MediaRecorder === 'undefined') {
+        throw new Error("MediaRecorder is not supported in this browser");
+      }
+      
       // Check support for preferred codec
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
         ? 'audio/webm' 
@@ -72,12 +82,20 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       
       console.log("Using MIME type:", mimeType);
       
-      // Create media recorder
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      console.log("MediaRecorder created with options:", { mimeType });
+      // Create media recorder with appropriate options
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000 // 128 kbps for better audio quality
+      });
+      
+      console.log("MediaRecorder created with options:", { 
+        mimeType, 
+        audioBitsPerSecond: 128000
+      });
       
       mediaRecorderRef.current = mediaRecorder;
       
+      // Setup data handler - this is critical
       mediaRecorder.ondataavailable = (event) => {
         console.log("Data available event triggered, size:", event.data.size);
         if (event.data && event.data.size > 0) {
@@ -86,61 +104,65 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         }
       };
       
+      // Setup stop handler
       mediaRecorder.onstop = async () => {
-        try {
-          console.log("Recording stopped, processing audio...");
-          
-          if (audioChunksRef.current.length === 0) {
-            console.error("No audio chunks recorded");
-            toast.error("No audio recorded. Please try again.");
-            setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
-            return;
-          }
-          
-          console.log("Total audio chunks:", audioChunksRef.current.length);
-          console.log("Audio chunk sizes:", audioChunksRef.current.map(chunk => chunk.size));
-          
-          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-          
-          console.log("Created audio blob:", {
-            size: audioBlob.size,
-            type: audioBlob.type
-          });
-          
-          if (audioBlob.size === 0) {
-            console.error("Empty audio blob created");
-            toast.error("Empty recording detected. Please try again.");
-            setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
-            return;
-          }
-          
-          setStatus(prev => ({ ...prev, isProcessing: true, isRecording: false }));
-          
-          try {
-            console.log("Sending audio for transcription...");
-            const result = await transcribeAudio(audioBlob);
-            console.log("Transcription complete:", result);
-            onTranscriptionComplete(result);
-          } catch (error) {
-            console.error("Error in transcription process:", error);
-            toast.error("Failed to process recording. Please try again.");
-          } finally {
-            setStatus(prev => ({ ...prev, isProcessing: false }));
-            // Release microphone access
-            if (micStreamRef.current) {
-              micStreamRef.current.getTracks().forEach(track => track.stop());
-              micStreamRef.current = null;
-            }
-          }
-        } catch (error) {
-          console.error("Error processing recording:", error);
-          toast.error("Failed to process recording. Please try again.");
+        console.log("Recording stopped, processing audio...");
+        
+        if (audioChunksRef.current.length === 0) {
+          console.error("No audio chunks recorded");
+          toast.error("No audio recorded. Please try again.");
           setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
+          return;
+        }
+        
+        console.log("Total audio chunks:", audioChunksRef.current.length);
+        console.log("Audio chunk sizes:", audioChunksRef.current.map(chunk => chunk.size));
+        
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        
+        console.log("Created audio blob:", {
+          size: audioBlob.size,
+          type: audioBlob.type
+        });
+        
+        if (audioBlob.size < 100) { // Adjust the minimum size check
+          console.error("Audio blob too small:", audioBlob.size);
+          toast.error("Recording too short or empty. Please try again speaking clearly.");
+          setStatus(prev => ({ ...prev, isProcessing: false, isRecording: false }));
+          return;
+        }
+        
+        setStatus(prev => ({ ...prev, isProcessing: true, isRecording: false }));
+        
+        try {
+          console.log("Sending audio for transcription...");
+          const result = await transcribeAudio(audioBlob);
+          console.log("Transcription complete:", result);
+          onTranscriptionComplete(result);
+        } catch (error) {
+          console.error("Error in transcription process:", error);
+          toast.error("Failed to process recording. Please try again.");
+        } finally {
+          setStatus(prev => ({ ...prev, isProcessing: false }));
+          // Release microphone access
+          if (micStreamRef.current) {
+            micStreamRef.current.getTracks().forEach(track => track.stop());
+            micStreamRef.current = null;
+          }
         }
       };
       
-      // Start recording with a timeslice to get data during recording
-      mediaRecorder.start(1000); // Collect data every second
+      // Add error handler to MediaRecorder
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        toast.error("Recording error occurred. Please try again.");
+        stopRecording();
+      };
+      
+      // Start recording with a shorter timeslice to get data more frequently
+      mediaRecorder.start(500); // Collect data every 500ms instead of 1000ms
+      
+      console.log("MediaRecorder started with timeslice: 500ms");
       
       setStatus({
         isRecording: true,
@@ -158,16 +180,25 @@ const RecordButton: React.FC<RecordButtonProps> = ({
     } catch (error) {
       console.error("Error starting recording:", error);
       toast.error("Unable to access microphone. Please check permissions and try again.");
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(track => track.stop());
+        micStreamRef.current = null;
+      }
     }
   };
   
   const stopRecording = () => {
-    if (mediaRecorderRef.current && status.isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       console.log("Stopping recording...");
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error("Error stopping recording:", error);
+      }
       
       if (timerRef.current) {
         window.clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     }
   };
