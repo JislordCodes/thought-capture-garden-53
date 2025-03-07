@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -8,62 +8,52 @@ import Header from '@/components/Header';
 import RecordButton from '@/components/RecordButton';
 import EmptyState from '@/components/EmptyState';
 import NoteCard from '@/components/NoteCard';
+import { useAuth } from '@/lib/auth';
+import { getNotes, createNote } from '@/lib/notes';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const navigate = useNavigate();
-  const [recentNotes, setRecentNotes] = useState<Note[]>(() => {
-    // Try to load from localStorage
-    const saved = localStorage.getItem('thought-garden-notes');
-    if (!saved) return [];
-    
-    try {
-      // Parse the saved notes and ensure dates are properly converted back to Date objects
-      const parsedNotes = JSON.parse(saved);
-      return parsedNotes.map((note: any) => ({
-        ...note,
-        createdAt: new Date(note.createdAt),
-        updatedAt: new Date(note.updatedAt)
-      }));
-    } catch (error) {
-      console.error("Error parsing saved notes:", error);
-      return [];
-    }
-  });
+  const { user } = useAuth();
+  const [recentNotes, setRecentNotes] = useState<Note[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleTranscriptionComplete = (result: TranscriptionResult) => {
+  // Load notes from Supabase
+  useEffect(() => {
+    const loadNotes = async () => {
+      if (user) {
+        setIsLoading(true);
+        try {
+          const notes = await getNotes();
+          setRecentNotes(notes);
+        } catch (error) {
+          console.error("Error loading notes:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    loadNotes();
+  }, [user]);
+
+  const handleTranscriptionComplete = async (result: TranscriptionResult) => {
     console.log("Transcription complete, creating note:", result);
     
+    if (!user) {
+      toast.error("You must be logged in to create notes");
+      navigate('/auth');
+      return;
+    }
+    
     try {
-      // Create a new note from the transcription
-      const newNote: Note = {
-        id: Date.now().toString(),
-        title: result.title || "Untitled Note",
-        content: result.text || "",
-        summary: result.summary || "No summary available",
-        categories: result.categories || [],
-        keywords: result.keywords || [],
-        actionItems: result.actionItems || [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      // Add to recent notes
-      const updatedNotes = [newNote, ...recentNotes];
-      setRecentNotes(updatedNotes);
+      const newNote = await createNote(result);
       
-      // Save to localStorage with proper date handling
-      // Converting dates to ISO strings for reliable serialization
-      const notesToSave = updatedNotes.map(note => ({
-        ...note,
-        createdAt: note.createdAt.toISOString(),
-        updatedAt: note.updatedAt.toISOString()
-      }));
-      
-      localStorage.setItem('thought-garden-notes', JSON.stringify(notesToSave));
-      console.log("Note saved to localStorage:", newNote);
-      
-      // Navigate to the new note
-      navigate(`/notes/${newNote.id}`);
+      if (newNote) {
+        // Add to recent notes and navigate to the new note
+        setRecentNotes([newNote, ...recentNotes]);
+        navigate(`/notes/${newNote.id}`);
+      }
     } catch (error) {
       console.error("Error creating note:", error);
       toast.error("Failed to create note. Please try again.");
@@ -91,7 +81,22 @@ const Index = () => {
           
           <RecordButton onTranscriptionComplete={handleTranscriptionComplete} />
           
-          {recentNotes.length > 0 ? (
+          {!user && (
+            <div className="text-center mt-4">
+              <p className="text-muted-foreground mb-2">Sign in to save your notes</p>
+              <Button asChild>
+                <a href="/auth">Sign in</a>
+              </Button>
+            </div>
+          )}
+          
+          {user && isLoading && (
+            <div className="w-full flex justify-center py-8">
+              <div className="animate-pulse w-16 h-16 rounded-full bg-muted"></div>
+            </div>
+          )}
+          
+          {user && !isLoading && recentNotes.length > 0 ? (
             <div className="w-full space-y-4 mt-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Recent Thoughts</h3>
@@ -109,9 +114,9 @@ const Index = () => {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : user && !isLoading ? (
             <EmptyState />
-          )}
+          ) : null}
         </div>
       </main>
     </div>

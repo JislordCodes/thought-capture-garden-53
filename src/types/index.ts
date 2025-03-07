@@ -9,6 +9,11 @@ export interface Note {
   actionItems: string[];
   createdAt: Date;
   updatedAt: Date;
+  user_id?: string;
+  // Database column names (not used in the UI but needed for type conversion)
+  created_at?: string;
+  updated_at?: string;
+  action_items?: string[];
 }
 
 export interface RecordingStatus {
@@ -25,4 +30,11 @@ export interface TranscriptionResult {
   categories: string[];
   keywords: string[];
   actionItems: string[];
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name?: string;
+  avatar_url?: string;
 }

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Clock, Tag, ListChecks, KeyRound, ArrowLeft, Trash2 } from 'lucide-react';
+import { Clock, Tag, ListChecks, KeyRound, Trash2 } from 'lucide-react';
 import { Note } from '@/types';
 import { toast } from '@/hooks/use-sonner';
 import Header from '@/components/Header';
@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { getNoteById, deleteNote } from '@/lib/notes';
 
 const NoteDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,20 +27,21 @@ const NoteDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Load notes from localStorage
-    const savedNotes = localStorage.getItem('thought-garden-notes');
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes) as Note[];
-      const foundNote = parsedNotes.find(n => n.id === id);
+    const loadNote = async () => {
+      if (!id) return;
       
-      if (foundNote) {
-        // Convert string dates back to Date objects
-        foundNote.createdAt = new Date(foundNote.createdAt);
-        foundNote.updatedAt = new Date(foundNote.updatedAt);
-        setNote(foundNote);
+      setIsLoading(true);
+      try {
+        const fetchedNote = await getNoteById(id);
+        setNote(fetchedNote);
+      } catch (error) {
+        console.error("Error loading note:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+    
+    loadNote();
   }, [id]);
   
   // Format date to be more readable
@@ -54,13 +56,12 @@ const NoteDetailPage = () => {
     }).format(date);
   };
   
-  const handleDelete = () => {
-    const savedNotes = localStorage.getItem('thought-garden-notes');
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes) as Note[];
-      const updatedNotes = parsedNotes.filter(n => n.id !== id);
-      localStorage.setItem('thought-garden-notes', JSON.stringify(updatedNotes));
-      
+  const handleDelete = async () => {
+    if (!id) return;
+    
+    const success = await deleteNote(id);
+    
+    if (success) {
       toast.success("Note deleted successfully");
       navigate('/notes');
     }

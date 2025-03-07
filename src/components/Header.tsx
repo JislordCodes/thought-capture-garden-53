@@ -1,49 +1,46 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Menu } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import UserMenu from '@/components/UserMenu';
 
 interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  title = "Thought Garden", 
-  showBackButton = false 
-}) => {
-  const location = useLocation();
-  const isHomePage = location.pathname === '/';
+const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
+  const navigate = useNavigate();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border py-4 px-6">
-      <div className="max-w-3xl mx-auto flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 h-16 border-b bg-background/80 backdrop-blur-sm z-10">
+      <div className="container max-w-3xl h-full mx-auto px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {showBackButton && (
-            <Link 
-              to="/" 
-              className="p-2 rounded-full hover:bg-accent transition-colors duration-200 focus-ring"
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate(-1)}
               aria-label="Go back"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          
+          {title ? (
+            <h1 className="text-lg font-medium">{title}</h1>
+          ) : (
+            <Link to="/" className="flex items-center gap-2">
+              <div className="flex items-center justify-center p-1 bg-primary/10 rounded-full">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <span className="font-medium">Thought Garden</span>
             </Link>
           )}
-          <h1 className="text-xl font-medium tracking-tight">
-            {title}
-          </h1>
         </div>
         
-        <div className="flex items-center gap-2">
-          {!isHomePage && (
-            <Link 
-              to="/notes" 
-              className="p-2 rounded-full hover:bg-accent transition-colors duration-200 focus-ring"
-              aria-label="View all notes"
-            >
-              <Menu size={20} />
-            </Link>
-          )}
-        </div>
+        <UserMenu />
       </div>
     </header>
   );

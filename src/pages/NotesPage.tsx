@@ -8,6 +8,7 @@ import NoteCard from '@/components/NoteCard';
 import EmptyState from '@/components/EmptyState';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { getNotes } from '@/lib/notes';
 
 const NotesPage = () => {
   const navigate = useNavigate();
@@ -15,20 +16,29 @@ const NotesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Load notes from localStorage
+  // Load notes from Supabase
   useEffect(() => {
-    const savedNotes = localStorage.getItem('thought-garden-notes');
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes) as Note[];
-      setNotes(parsedNotes);
-      
-      // Extract all unique categories
-      const categories = Array.from(
-        new Set(parsedNotes.flatMap(note => note.categories))
-      );
-      setAllCategories(categories);
-    }
+    const loadNotes = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedNotes = await getNotes();
+        setNotes(fetchedNotes);
+        
+        // Extract all unique categories
+        const categories = Array.from(
+          new Set(fetchedNotes.flatMap(note => note.categories))
+        );
+        setAllCategories(categories);
+      } catch (error) {
+        console.error("Error loading notes:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadNotes();
   }, []);
   
   // Filter notes based on search query and selected category
@@ -43,6 +53,17 @@ const NotesPage = () => {
       
     return matchesSearch && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header title="All Notes" showBackButton />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse w-16 h-16 rounded-full bg-muted"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
