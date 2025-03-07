@@ -45,8 +45,18 @@ const RecordButton: React.FC<RecordButtonProps> = ({
   
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
+      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
@@ -57,7 +67,7 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       };
       
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         
         // Only process if there's actual content
         if (audioBlob.size > 0) {
@@ -65,7 +75,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           try {
             const result = await transcribeAudio(audioBlob);
             onTranscriptionComplete(result);
-            toast.success("Thoughts captured successfully!");
           } catch (error) {
             console.error("Error processing recording:", error);
             toast.error("Failed to process your recording. Please try again.");
@@ -78,7 +87,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         stream.getTracks().forEach(track => track.stop());
       };
       
-      mediaRecorder.start();
+      // Setup data collection every second
+      mediaRecorder.start(1000);
       
       // Start timer
       setStatus({
