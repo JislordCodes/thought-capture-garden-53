@@ -10,20 +10,48 @@ let textProcessor: any = null;
 async function initModels() {
   if (!transcriber) {
     toast.loading("Loading transcription model...");
-    transcriber = await pipeline(
-      "automatic-speech-recognition",
-      "onnx-community/whisper-tiny.en",
-      { device: "webgpu" }
-    );
+    try {
+      // Try WebGPU first, fallback to CPU
+      try {
+        transcriber = await pipeline(
+          "automatic-speech-recognition",
+          "onnx-community/whisper-tiny.en",
+          { device: "webgpu" }
+        );
+      } catch (error) {
+        console.log("WebGPU not available, falling back to CPU", error);
+        transcriber = await pipeline(
+          "automatic-speech-recognition",
+          "onnx-community/whisper-tiny.en"
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initialize transcription model:", error);
+      throw new Error("Failed to initialize transcription model");
+    }
   }
   
   if (!textProcessor) {
     toast.loading("Loading text analysis model...");
-    textProcessor = await pipeline(
-      "text-generation",
-      "onnx-community/gpt2-medium",
-      { device: "webgpu" }
-    );
+    try {
+      // Try WebGPU first, fallback to CPU
+      try {
+        textProcessor = await pipeline(
+          "text-generation",
+          "onnx-community/gpt2-medium",
+          { device: "webgpu" }
+        );
+      } catch (error) {
+        console.log("WebGPU not available, falling back to CPU", error);
+        textProcessor = await pipeline(
+          "text-generation",
+          "onnx-community/gpt2-medium"
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initialize text processing model:", error);
+      throw new Error("Failed to initialize text processing model");
+    }
   }
 }
 
@@ -32,17 +60,16 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     await initModels();
     toast.loading("Transcribing your thoughts...");
     
-    // Convert blob to URL for the model
-    const audioUrl = URL.createObjectURL(audioBlob);
+    // Convert blob to array buffer for better compatibility
+    const arrayBuffer = await audioBlob.arrayBuffer();
     
     // Transcribe audio
-    const transcription = await transcriber(audioUrl);
+    const transcription = await transcriber({ data: arrayBuffer });
     const text = transcription.text;
     
     // Process the transcription
     const result = await processTranscription(text);
     
-    URL.revokeObjectURL(audioUrl);
     toast.dismiss();
     toast.success("Transcription complete!");
     
@@ -80,13 +107,31 @@ export async function processTranscription(text: string): Promise<Omit<Transcrip
     // Parse the generated response
     const output = response[0].generated_text.split('\n').filter(Boolean);
     
-    // Extract components (basic parsing, could be improved)
+    // Extract components (improved parsing)
+    const titleLine = output.find(line => line.includes('Title:'));
+    const summaryLine = output.find(line => line.includes('Summary:'));
+    const categoriesLine = output.find(line => line.includes('Categories:'));
+    const keywordsLine = output.find(line => line.includes('Keywords:'));
+    const actionItemsLine = output.find(line => line.includes('Action Items:'));
+    
+    const title = titleLine ? titleLine.replace('Title:', '').trim() : 'Untitled Note';
+    const summary = summaryLine ? summaryLine.replace('Summary:', '').trim() : 'No summary available';
+    const categories = categoriesLine ? 
+      categoriesLine.replace('Categories:', '').split(',').map(s => s.trim()).filter(Boolean) : 
+      [];
+    const keywords = keywordsLine ? 
+      keywordsLine.replace('Keywords:', '').split(',').map(s => s.trim()).filter(Boolean) : 
+      [];
+    const actionItems = actionItemsLine ? 
+      actionItemsLine.replace('Action Items:', '').split(',').map(s => s.trim()).filter(Boolean) : 
+      [];
+    
     const result = {
-      title: output[1]?.replace('Title:', '').trim() || 'Untitled Note',
-      summary: output[2]?.replace('Summary:', '').trim() || 'No summary available',
-      categories: output[3]?.replace('Categories:', '').split(',').map(s => s.trim()) || [],
-      keywords: output[4]?.replace('Keywords:', '').split(',').map(s => s.trim()) || [],
-      actionItems: output[5]?.replace('Action Items:', '').split(',').map(s => s.trim()) || [],
+      title,
+      summary,
+      categories,
+      keywords,
+      actionItems,
     };
     
     toast.dismiss();

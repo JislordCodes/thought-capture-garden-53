@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
@@ -50,8 +51,30 @@ const RecordButton: React.FC<RecordButtonProps> = ({
         } 
       });
       
+      // Check for supported MIME types
+      const mimeTypes = [
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/wav'
+      ];
+      
+      let supportedMimeType = '';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          supportedMimeType = type;
+          break;
+        }
+      }
+      
+      if (!supportedMimeType) {
+        throw new Error("No supported audio MIME type found on this browser");
+      }
+      
+      console.log("Using MIME type:", supportedMimeType);
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
+        mimeType: supportedMimeType
       });
       
       mediaRecorderRef.current = mediaRecorder;
@@ -64,7 +87,12 @@ const RecordButton: React.FC<RecordButtonProps> = ({
       };
       
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (audioChunksRef.current.length === 0) {
+          toast.error("No audio recorded. Please try again.");
+          return;
+        }
+        
+        const audioBlob = new Blob(audioChunksRef.current, { type: supportedMimeType });
         
         if (audioBlob.size > 0) {
           setStatus(prev => ({ ...prev, isProcessing: true }));
@@ -77,6 +105,8 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           } finally {
             setStatus(prev => ({ ...prev, isProcessing: false }));
           }
+        } else {
+          toast.error("Empty recording detected. Please try again.");
         }
         
         stream.getTracks().forEach(track => track.stop());
