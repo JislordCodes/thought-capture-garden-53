@@ -1,3 +1,4 @@
+
 import { TranscriptionResult } from "@/types";
 import { toast } from "@/hooks/use-sonner";
 
@@ -12,13 +13,13 @@ export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionRes
     // Convert the audio blob to base64
     const base64Audio = await blobToBase64(audioBlob);
     
-    // Call Groq API for translation instead of transcription
-    const transcription = await fetchTranslation(base64Audio);
+    // Call Groq API for transcription
+    const transcription = await fetchTranscription(base64Audio);
     
     // Handle empty or very short responses better
     if (!transcription || transcription.trim().length <= 1) {
-      console.error("Empty or very short translation result:", transcription);
-      throw new Error("Translation returned empty or minimal text. Please try recording again with clearer speech.");
+      console.error("Empty or very short transcription result:", transcription);
+      throw new Error("Transcription returned empty or minimal text. Please try recording again with clearer speech.");
     }
     
     // Clean up the transcription text
@@ -76,8 +77,8 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// Fetch translation from Groq API
-async function fetchTranslation(base64Audio: string): Promise<string> {
+// Fetch transcription from Groq API
+async function fetchTranscription(base64Audio: string): Promise<string> {
   try {
     // Convert base64 back to blob for sending
     const byteCharacters = atob(base64Audio);
@@ -106,10 +107,10 @@ async function fetchTranslation(base64Audio: string): Promise<string> {
     formData.append('response_format', 'json');
     formData.append('temperature', '0.2');
     
-    console.log("Sending translation request to Groq API");
+    console.log("Sending transcription request to Groq API");
     
-    // Call the Groq API using translations endpoint
-    const response = await fetch(`${GROQ_API_URL}/audio/translations`, {
+    // Call the Groq API using transcriptions endpoint (as requested)
+    const response = await fetch(`${GROQ_API_URL}/audio/transcriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`
@@ -118,17 +119,17 @@ async function fetchTranslation(base64Audio: string): Promise<string> {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       console.error('Groq API error:', errorData);
-      throw new Error(`Failed to translate audio: ${errorData.error?.message || 'Unknown API error'}`);
+      throw new Error(`Failed to transcribe audio: ${errorData.error?.message || response.statusText || 'Unknown API error'}`);
     }
     
     const data = await response.json();
-    console.log("Translation API response:", data);
+    console.log("Transcription API response:", data);
     
     return data.text || "";
   } catch (error) {
-    console.error("Error in translation:", error);
+    console.error("Error in transcription:", error);
     throw error;
   }
 }
