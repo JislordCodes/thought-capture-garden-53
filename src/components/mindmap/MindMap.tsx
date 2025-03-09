@@ -44,7 +44,9 @@ const MindMap: React.FC<MindMapProps> = ({ nodes: initialNodes, edges: initialEd
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (onNodeClick && node.data.type) {
-        onNodeClick(node.id, node.data.type, node.data.noteId);
+        // Fix: Explicitly type the node.data.type as string
+        const nodeType: string = node.data.type as string;
+        onNodeClick(node.id, nodeType, node.data.noteId);
       }
     },
     [onNodeClick]

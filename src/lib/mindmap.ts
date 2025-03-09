@@ -6,7 +6,7 @@ export interface MindMapNode {
   id: string;
   data: {
     label: string;
-    type?: 'note' | 'keyword' | 'category' | 'actionItem';
+    type?: 'note' | 'keyword' | 'category' | 'actionItem' | 'center';
     noteId?: string;
   };
   position: { x: number, y: number };
