@@ -106,6 +106,45 @@ export async function createNote(result: TranscriptionResult): Promise<Note | nu
   }
 }
 
+export async function updateNote(id: string, updates: Partial<Note>): Promise<Note | null> {
+  try {
+    // Convert from frontend model to database model
+    const dbUpdates: any = { ...updates };
+    
+    // Map actionItems to action_items for database
+    if (updates.actionItems) {
+      dbUpdates.action_items = updates.actionItems;
+      delete dbUpdates.actionItems;
+    }
+    
+    // Remove frontend-only properties
+    delete dbUpdates.createdAt;
+    delete dbUpdates.updatedAt;
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    return {
+      ...data,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+      actionItems: data.action_items || [],
+    } as Note;
+  } catch (error) {
+    console.error('Error updating note:', error);
+    toast.error('Failed to update note');
+    return null;
+  }
+}
+
 export async function deleteNote(id: string): Promise<boolean> {
   try {
     const { error } = await supabase
