@@ -72,7 +72,7 @@ const MindMap: React.FC<MindMapProps> = ({ nodes: initialNodes, edges: initialEd
   }, []);
 
   return (
-    <div className="h-full w-full bg-background">
+    <div className="w-full h-full bg-background" style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, Sparkles, Network } from 'lucide-react';
+import { ArrowLeft, Sparkles, Network, BrainIcon } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
@@ -46,17 +46,15 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-          {showMindMapButton && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate('/mindmap')}
-              className="flex items-center gap-1"
-            >
-              <Network className="h-4 w-4" />
-              <span className="hidden sm:inline">Mind Map</span>
-            </Button>
-          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate('/insights')}
+            className="flex items-center gap-1"
+          >
+            <BrainIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Deep Insights</span>
+          </Button>
           <UserMenu />
         </div>
       </div>

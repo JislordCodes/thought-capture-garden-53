@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Mic, Network, Sparkles } from 'lucide-react';
+import { Mic, Network, Sparkles, BrainIcon } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -35,11 +36,11 @@ const Index = () => {
             
             <div className="flex flex-col items-center text-center p-6 rounded-lg border border-border bg-card">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Network className="w-6 h-6 text-primary" />
+                <BrainIcon className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Insights</h3>
+              <h3 className="text-xl font-semibold mb-2">Deep Insights</h3>
               <p className="text-muted-foreground mb-4">
-                Discover connections and patterns across your notes with AI-powered insights.
+                Discover connections, patterns, and actionable insights from your notes.
               </p>
               {isLoggedIn && (
                 <Button variant="outline" className="mt-auto" onClick={() => navigate('/insights')}>
@@ -50,14 +51,14 @@ const Index = () => {
             
             <div className="flex flex-col items-center text-center p-6 rounded-lg border border-border bg-card">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Sparkles className="w-6 h-6 text-primary" />
+                <Network className="w-6 h-6 text-primary" />
               </div>
               <h3 className="text-xl font-semibold mb-2">Mind Maps</h3>
               <p className="text-muted-foreground mb-4">
                 Visualize your thoughts with interactive mind maps that reveal connections.
               </p>
               {isLoggedIn && (
-                <Button variant="outline" className="mt-auto" onClick={() => navigate('/mindmap')}>
+                <Button variant="outline" className="mt-auto" onClick={() => navigate('/insights')}>
                   Explore Mind Map
                 </Button>
               )}
