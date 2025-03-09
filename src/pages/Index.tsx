@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, BrainCircuit } from 'lucide-react';
 import { toast } from '@/hooks/use-sonner';
 import { TranscriptionResult, Note } from '@/types';
 import Header from '@/components/Header';
@@ -86,6 +86,25 @@ const Index = () => {
               <p className="text-muted-foreground mb-2">Sign in to save your notes</p>
               <Button asChild>
                 <a href="/auth">Sign in</a>
+              </Button>
+            </div>
+          )}
+          
+          {user && (
+            <div className="flex gap-4 mt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/notes')}
+              >
+                View All Notes
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/deep-insights')}
+                className="flex items-center gap-2"
+              >
+                <BrainCircuit size={16} />
+                <span>Deep Insights</span>
               </Button>
             </div>
           )}

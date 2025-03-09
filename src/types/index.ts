@@ -51,3 +51,10 @@ export interface NoteInsight {
   type: 'theme' | 'connection' | 'trend' | 'actionRequired';
   createdAt: Date;
 }
+
+// Mind Map Types
+export interface MindMapNode {
+  label: string;
+  type: 'center' | 'note' | 'keyword' | 'category' | 'actionItem';
+  noteId?: string;
+}
