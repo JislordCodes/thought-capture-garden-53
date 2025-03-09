@@ -46,7 +46,9 @@ const MindMap: React.FC<MindMapProps> = ({ nodes: initialNodes, edges: initialEd
       if (onNodeClick && node.data.type) {
         // Fix: Explicitly type the node.data.type as string
         const nodeType: string = node.data.type as string;
-        onNodeClick(node.id, nodeType, node.data.noteId);
+        // Fix: Explicitly cast noteId to string or undefined to match the function signature
+        const noteId = node.data.noteId ? String(node.data.noteId) : undefined;
+        onNodeClick(node.id, nodeType, noteId);
       }
     },
     [onNodeClick]
