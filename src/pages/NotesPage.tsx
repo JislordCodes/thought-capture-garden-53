@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Tag } from 'lucide-react';
@@ -17,6 +18,7 @@ const NotesPage = () => {
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Load notes from Supabase
   useEffect(() => {
     const loadNotes = async () => {
       setIsLoading(true);
@@ -24,6 +26,7 @@ const NotesPage = () => {
         const fetchedNotes = await getNotes();
         setNotes(fetchedNotes);
         
+        // Extract all unique categories
         const categories = Array.from(
           new Set(fetchedNotes.flatMap(note => note.categories))
         );
@@ -38,6 +41,7 @@ const NotesPage = () => {
     loadNotes();
   }, []);
   
+  // Filter notes based on search query and selected category
   const filteredNotes = notes.filter(note => {
     const matchesSearch = searchQuery === '' || 
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,10 +67,7 @@ const NotesPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header 
-        title="My Notes" 
-        showMindMapButton={notes && notes.length > 1} 
-      />
+      <Header title="All Notes" showBackButton />
       
       <main className="flex-1 container max-w-3xl mx-auto px-4 pt-20 pb-10">
         <div className="space-y-6 py-6">

@@ -8,8 +8,6 @@ import Index from "./pages/Index";
 import NotesPage from "./pages/NotesPage";
 import NoteDetailPage from "./pages/NoteDetailPage";
 import InsightsPage from "./pages/InsightsPage";
-import MindMapPage from "./pages/MindMapPage";
-import DeepInsightsPage from "./pages/DeepInsightsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./lib/auth";
@@ -39,17 +37,7 @@ const App = () => (
             } />
             <Route path="/insights" element={
               <ProtectedRoute>
-                <DeepInsightsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/mindmap" element={
-              <ProtectedRoute>
-                <MindMapPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/deep-insights" element={
-              <ProtectedRoute>
-                <DeepInsightsPage />
+                <InsightsPage />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
