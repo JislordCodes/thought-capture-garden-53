@@ -10,24 +10,18 @@ import { Progress } from '@/components/ui/progress';
 import { Sparkles, BrainCircuit, CheckSquare } from 'lucide-react';
 import MindMap from '@/components/mindmap/MindMap';
 import { generateMindMapData } from '@/lib/mindmap';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const DeepInsightsPage: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<string>('mindmap');
+  const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Fetch all notes
   const { data: notes, isLoading: isLoadingNotes } = useQuery({
     queryKey: ['notes'],
     queryFn: getNotes,
-  });
-  
-  // Generate insights based on notes
-  const { data: insights, isLoading: isGeneratingInsights } = useQuery({
-    queryKey: ['insights', notes],
-    queryFn: async () => {
-      if (!notes || notes.length < 2) return [];
-      return analyzeNotes(notes);
-    },
-    enabled: !!notes && notes.length >= 2,
   });
   
   // Calculate action item metrics
@@ -59,7 +53,13 @@ const DeepInsightsPage: React.FC = () => {
     return generateMindMapData(notes);
   }, [notes]);
   
-  const isLoading = isLoadingNotes || isGeneratingInsights;
+  const handleNodeClick = (type: string, noteId?: string) => {
+    if (type === 'note' && noteId) {
+      navigate(`/notes/${noteId}`);
+    }
+  };
+  
+  const isLoading = isLoadingNotes;
   
   if (isLoading) {
     return (
@@ -91,7 +91,7 @@ const DeepInsightsPage: React.FC = () => {
           </div>
           
           <Tabs defaultValue="mindmap" value={selectedTab} onValueChange={setSelectedTab}>
-            <TabsList className="w-full max-w-md grid grid-cols-3 mb-6">
+            <TabsList className="w-full max-w-md grid grid-cols-2 mb-6">
               <TabsTrigger value="mindmap" className="flex items-center gap-2">
                 <BrainCircuit size={16} />
                 <span>Mind Map</span>
@@ -100,24 +100,15 @@ const DeepInsightsPage: React.FC = () => {
                 <CheckSquare size={16} />
                 <span>Progress</span>
               </TabsTrigger>
-              <TabsTrigger value="advice" className="flex items-center gap-2">
-                <Sparkles size={16} />
-                <span>Advice</span>
-              </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="mindmap" className="h-[500px] w-full mt-4">
+            <TabsContent value="mindmap" className="h-[600px] w-full mt-4">
               {mindMapData ? (
                 <div className="h-full w-full border rounded-lg overflow-hidden">
                   <MindMap 
                     nodes={mindMapData.nodes} 
                     edges={mindMapData.edges}
-                    onNodeClick={(type, noteId) => {
-                      if (noteId) {
-                        console.log(`Clicked on ${type} node with note ID: ${noteId}`);
-                        // Could navigate to note detail page here
-                      }
-                    }}
+                    onNodeClick={handleNodeClick}
                   />
                 </div>
               ) : (
@@ -184,64 +175,6 @@ const DeepInsightsPage: React.FC = () => {
                 </Card>
               )}
             </TabsContent>
-            
-            <TabsContent value="advice" className="mt-4 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Productivity Insights</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {notes && notes.length > 0 ? (
-                    <>
-                      <div className="p-4 bg-primary/10 rounded-lg">
-                        <h3 className="font-medium mb-2">Focus Areas</h3>
-                        <p className="text-muted-foreground">
-                          Based on your notes, you're focusing most on{' '}
-                          {Object.entries(
-                            notes
-                              .flatMap(note => note.categories)
-                              .reduce((acc, category) => {
-                                acc[category] = (acc[category] || 0) + 1;
-                                return acc;
-                              }, {} as Record<string, number>)
-                          )
-                            .sort(([, a], [, b]) => b - a)
-                            .slice(0, 3)
-                            .map(([category]) => category)
-                            .join(', ') || 'various topics'}
-                        </p>
-                      </div>
-                      
-                      <div className="p-4 bg-accent/30 rounded-lg">
-                        <h3 className="font-medium mb-2">Action Item Patterns</h3>
-                        <p className="text-muted-foreground">
-                          {actionItemStats.percentage < 30 ? 
-                            "You have many open action items. Consider focusing on completing existing tasks before adding new ones." :
-                            actionItemStats.percentage > 70 ? 
-                            "Great job completing your action items! You're making excellent progress on your tasks." :
-                            "You're making steady progress on your action items. Keep up the balanced approach."
-                          }
-                        </p>
-                      </div>
-                      
-                      <div className="p-4 bg-secondary/10 rounded-lg">
-                        <h3 className="font-medium mb-2">Note-Taking Patterns</h3>
-                        <p className="text-muted-foreground">
-                          {notes.length < 5 ? 
-                            "Keep adding more notes to get better insights and connections between your ideas." :
-                            notes.length > 20 ? 
-                            "You have a substantial collection of notes. Consider organizing them into projects or themes." :
-                            "You're building a good collection of notes. Try connecting related ideas across different notes."
-                          }
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-muted-foreground italic">Add more notes to receive personalized advice</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
         </div>
       </main>
@@ -250,4 +183,3 @@ const DeepInsightsPage: React.FC = () => {
 };
 
 export default DeepInsightsPage;
-

@@ -6,20 +6,6 @@ import { MindMapNode } from '@/types';
 // Helper for creating unique IDs
 const getId = () => `${Math.random().toString(36).substring(2, 9)}`;
 
-// Helper to get a mapping of frequencies
-const getFrequencyMap = <T>(items: T[]): Map<T, number> => {
-  const map = new Map<T, number>();
-  items.forEach(item => {
-    map.set(item, (map.get(item) || 0) + 1);
-  });
-  return map;
-};
-
-// Sort entries by frequency in descending order
-const getSortedEntries = <T>(map: Map<T, number>): [T, number][] => {
-  return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
-};
-
 export const generateMindMapData = (notes: Note[]) => {
   if (!notes || notes.length === 0) return { nodes: [], edges: [] };
 
@@ -32,36 +18,33 @@ export const generateMindMapData = (notes: Note[]) => {
     id: centerNodeId,
     type: 'mindMapNode',
     data: {
-      label: 'My Thoughts',
+      label: 'My Notes',
       type: 'center',
     },
     position: { x: 0, y: 0 },
   });
   
-  // Extract all categories, keywords, and action items
-  const allCategories = notes.flatMap(note => note.categories || []);
-  const allKeywords = notes.flatMap(note => note.keywords || []);
-  const allActionItems = notes.flatMap(note => note.actionItems || [])
-    .filter(item => !item.startsWith('✓ ')) // Only include uncompleted items
-    .map(item => item.startsWith('✓ ') ? item.substring(2) : item);
+  // Group notes by categories
+  const categoriesMap: Record<string, Note[]> = {};
   
-  // Get frequency maps
-  const categoryFrequency = getFrequencyMap(allCategories);
-  const keywordFrequency = getFrequencyMap(allKeywords);
-  const actionItemFrequency = getFrequencyMap(allActionItems);
+  notes.forEach(note => {
+    note.categories.forEach(category => {
+      if (!categoriesMap[category]) {
+        categoriesMap[category] = [];
+      }
+      categoriesMap[category].push(note);
+    });
+  });
   
-  // Sort by frequency
-  const topCategories = getSortedEntries(categoryFrequency).slice(0, 5);
-  const topKeywords = getSortedEntries(keywordFrequency).slice(0, 8);
-  const topActionItems = getSortedEntries(actionItemFrequency).slice(0, 5);
+  // Sort categories by number of notes
+  const sortedCategories = Object.entries(categoriesMap)
+    .sort(([, notesA], [, notesB]) => notesB.length - notesA.length)
+    .slice(0, 8); // Limit to top 8 categories
   
-  // Calculate angles for positioning nodes around the center
-  const totalNodes = topCategories.length + topKeywords.length + topActionItems.length;
-  
-  // Add category nodes
-  topCategories.forEach(([category, count], index) => {
-    const angle = (index / topCategories.length) * Math.PI * 2;
-    const radius = 200;
+  // Add category nodes in a circle around center
+  sortedCategories.forEach(([category, categoryNotes], index) => {
+    const angle = (index / sortedCategories.length) * Math.PI * 2;
+    const radius = 180;
     
     const x = Math.cos(angle) * radius;
     const y = Math.sin(angle) * radius;
@@ -87,17 +70,18 @@ export const generateMindMapData = (notes: Note[]) => {
       type: 'default',
     });
     
-    // Add related note nodes for this category
-    const relatedNotes = notes.filter(n => n.categories.includes(category)).slice(0, 3);
+    // Add note nodes for this category (limited to top 5)
+    const topNotes = categoryNotes.slice(0, 5);
     
-    relatedNotes.forEach((note, noteIndex) => {
-      const noteAngle = angle - 0.3 + (noteIndex / relatedNotes.length) * 0.6;
-      const noteRadius = 350;
+    topNotes.forEach((note, noteIndex) => {
+      const notesInCategory = topNotes.length;
+      const noteAngle = angle - 0.3 + ((noteIndex / (notesInCategory - 1)) * 0.6 || 0);
+      const noteRadius = 320;
       
       const noteX = Math.cos(noteAngle) * noteRadius;
       const noteY = Math.sin(noteAngle) * noteRadius;
       
-      const noteNodeId = `note-${note.id}-${getId()}`;
+      const noteNodeId = `note-${note.id}`;
       
       // Add note node
       nodes.push({
@@ -107,6 +91,10 @@ export const generateMindMapData = (notes: Note[]) => {
           label: note.title,
           type: 'note',
           noteId: note.id,
+          content: note.content.slice(0, 100) + (note.content.length > 100 ? '...' : ''),
+          categories: note.categories,
+          keywords: note.keywords,
+          actionItems: note.actionItems,
         },
         position: { x: noteX, y: noteY },
       });
@@ -118,66 +106,39 @@ export const generateMindMapData = (notes: Note[]) => {
         target: noteNodeId,
         type: 'default',
       });
-    });
-  });
-  
-  // Add keyword nodes
-  topKeywords.forEach(([keyword, count], index) => {
-    const angle = (index / topKeywords.length) * Math.PI * 2;
-    const radius = 250;
-    
-    const x = Math.cos(angle + Math.PI / 2) * radius;
-    const y = Math.sin(angle + Math.PI / 2) * radius;
-    
-    const keywordNodeId = `keyword-${getId()}`;
-    
-    // Add keyword node
-    nodes.push({
-      id: keywordNodeId,
-      type: 'mindMapNode',
-      data: {
-        label: keyword,
-        type: 'keyword',
-      },
-      position: { x, y },
-    });
-    
-    // Connect keyword to center
-    edges.push({
-      id: `e-center-${keywordNodeId}`,
-      source: centerNodeId,
-      target: keywordNodeId,
-      type: 'default',
-    });
-  });
-  
-  // Add action item nodes
-  topActionItems.forEach(([actionItem, count], index) => {
-    const angle = (index / topActionItems.length) * Math.PI * 2;
-    const radius = 200;
-    
-    const x = Math.cos(angle + Math.PI) * radius;
-    const y = Math.sin(angle + Math.PI) * radius;
-    
-    const actionItemNodeId = `action-${getId()}`;
-    
-    // Add action item node
-    nodes.push({
-      id: actionItemNodeId,
-      type: 'mindMapNode',
-      data: {
-        label: actionItem.length > 30 ? actionItem.substring(0, 30) + '...' : actionItem,
-        type: 'actionItem',
-      },
-      position: { x, y },
-    });
-    
-    // Connect action item to center
-    edges.push({
-      id: `e-center-${actionItemNodeId}`,
-      source: centerNodeId,
-      target: actionItemNodeId,
-      type: 'default',
+      
+      // Connect notes that share keywords
+      notes.forEach(otherNote => {
+        if (otherNote.id !== note.id) {
+          const sharedKeywords = note.keywords.filter(keyword => 
+            otherNote.keywords.includes(keyword)
+          );
+          
+          if (sharedKeywords.length > 0) {
+            const otherNodeId = `note-${otherNote.id}`;
+            const edgeId = `e-${note.id}-${otherNote.id}`;
+            
+            // Only add edge if both nodes exist and the edge doesn't already exist
+            if (
+              nodes.some(n => n.id === otherNodeId) && 
+              !edges.some(e => 
+                (e.source === noteNodeId && e.target === otherNodeId) || 
+                (e.source === otherNodeId && e.target === noteNodeId)
+              )
+            ) {
+              edges.push({
+                id: edgeId,
+                source: noteNodeId,
+                target: otherNodeId,
+                type: 'default',
+                animated: true,
+                style: { stroke: '#9ca3af', strokeWidth: 1, strokeDasharray: '5 5' },
+                data: { relationship: 'shared keywords' }
+              });
+            }
+          }
+        }
+      });
     });
   });
   

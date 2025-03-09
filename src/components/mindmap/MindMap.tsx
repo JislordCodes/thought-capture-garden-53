@@ -49,6 +49,7 @@ const MindMap: React.FC<MindMapProps> = ({ nodes, edges, onNodeClick }) => {
       attributionPosition="bottom-right"
       minZoom={0.2}
       maxZoom={1.5}
+      defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
     >
       <Controls />
       <MiniMap
@@ -58,9 +59,7 @@ const MindMap: React.FC<MindMapProps> = ({ nodes, edges, onNodeClick }) => {
         }}
         nodeColor={(n) => {
           if (n.data?.type === 'center') return '#4f46e5';
-          if (n.data?.type === 'keyword') return '#0ea5e9';
           if (n.data?.type === 'category') return '#10b981';
-          if (n.data?.type === 'actionItem') return '#ef4444';
           if (n.data?.type === 'note') return '#f59e0b';
           return '#eee';
         }}
