@@ -197,13 +197,15 @@ const DeepInsightsPage: React.FC = () => {
                         <h3 className="font-medium mb-2">Focus Areas</h3>
                         <p className="text-muted-foreground">
                           Based on your notes, you're focusing most on{' '}
-                          {notes
-                            .flatMap(note => note.categories)
-                            .reduce((acc, category) => {
-                              acc[category] = (acc[category] || 0) + 1;
-                              return acc;
-                            }, {} as Record<string, number>)
-                            .sort((a, b) => b[1] - a[1])
+                          {Object.entries(
+                            notes
+                              .flatMap(note => note.categories)
+                              .reduce((acc, category) => {
+                                acc[category] = (acc[category] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)
+                          )
+                            .sort(([, a], [, b]) => b - a)
                             .slice(0, 3)
                             .map(([category]) => category)
                             .join(', ') || 'various topics'}
@@ -248,3 +250,4 @@ const DeepInsightsPage: React.FC = () => {
 };
 
 export default DeepInsightsPage;
+
