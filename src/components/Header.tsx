@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Network } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
@@ -8,9 +8,14 @@ import UserMenu from '@/components/UserMenu';
 interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
+  showMindMapButton?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  title, 
+  showBackButton = false,
+  showMindMapButton = false
+}) => {
   const navigate = useNavigate();
 
   return (
@@ -40,7 +45,20 @@ const Header: React.FC<HeaderProps> = ({ title, showBackButton = false }) => {
           )}
         </div>
         
-        <UserMenu />
+        <div className="flex items-center gap-2">
+          {showMindMapButton && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/mindmap')}
+              className="flex items-center gap-1"
+            >
+              <Network className="h-4 w-4" />
+              <span className="hidden sm:inline">Mind Map</span>
+            </Button>
+          )}
+          <UserMenu />
+        </div>
       </div>
     </header>
   );

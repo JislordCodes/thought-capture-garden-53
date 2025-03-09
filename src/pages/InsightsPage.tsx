@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,13 +12,11 @@ import { NetworkIcon, LightbulbIcon } from 'lucide-react';
 const InsightsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('all');
   
-  // Fetch all notes
   const { data: notes, isLoading: isLoadingNotes } = useQuery({
     queryKey: ['notes'],
     queryFn: getNotes,
   });
   
-  // Generate insights based on notes
   const { data: insights, isLoading: isGeneratingInsights } = useQuery({
     queryKey: ['insights', notes],
     queryFn: async () => {
@@ -29,7 +26,6 @@ const InsightsPage: React.FC = () => {
     enabled: !!notes && notes.length >= 2,
   });
   
-  // Filter insights based on active tab
   const filteredInsights = React.useMemo(() => {
     if (!insights) return [];
     
@@ -40,7 +36,6 @@ const InsightsPage: React.FC = () => {
     return insights.filter(insight => insight.type === activeTab);
   }, [insights, activeTab]);
   
-  // Count insights by type
   const insightCounts = React.useMemo(() => {
     if (!insights) return { connection: 0, theme: 0, trend: 0, actionRequired: 0 };
     
@@ -54,7 +49,6 @@ const InsightsPage: React.FC = () => {
   
   const isLoading = isLoadingNotes || isGeneratingInsights;
   
-  // Show loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -66,7 +60,6 @@ const InsightsPage: React.FC = () => {
     );
   }
   
-  // Show empty state if there are no insights
   if (!insights || insights.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -84,7 +77,11 @@ const InsightsPage: React.FC = () => {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Header title="Insights" showBackButton />
+      <Header 
+        title="Insights" 
+        showBackButton 
+        showMindMapButton={insights && insights.length > 0} 
+      />
       
       <main className="flex-1 container max-w-4xl mx-auto px-4 pt-20 pb-10">
         <div className="space-y-6 py-6">
